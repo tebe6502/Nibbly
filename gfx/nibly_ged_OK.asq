@@ -1,0 +1,3531 @@
+/********************************************/
+/*   Use MADS http://g2f.atari8.info/mads   */
+/*   Mode: GED+ (char mode)                 */
+/********************************************/
+
+scr48	equ %00111111	;screen 48b
+scr40	equ %00111110	;screen 40b
+scr32	equ %00111101	;screen 32b
+
+cloc	equ $0014	;(1)
+byt2	equ $0000	;(1) <$0100
+byt3	equ $0100	;(1) >$00FF
+
+ftmp	equ $80		;(2)
+regA	equ ftmp+2	;(1)
+regX	equ regA+1	;(1)
+regY	equ regX+1	;(1)
+
+hposp0	equ $D000
+hposp1	equ $D001
+hposp2	equ $D002
+hposp3	equ $D003
+hposm0	equ $D004
+hposm1	equ $D005
+hposm2	equ $D006
+hposm3	equ $D007
+sizep0	equ $D008
+sizep1	equ $D009
+sizep2	equ $D00A
+sizep3	equ $D00B
+sizem	equ $D00C
+
+colpm0	equ $D012
+colpm1	equ $D013
+colpm2	equ $D014
+colpm3	equ $D015
+color0	equ $D016
+color1	equ $D017
+color2	equ $D018
+color3	equ $D019
+colbak	equ $D01A
+gtictl	equ $D01B
+
+chbase	equ $D409
+
+;-- BASIC switch OFF
+ org $2000
+ lda #$ff
+ sta $d301
+ rts
+ ini $2000
+
+;-- MAIN PROGRAM
+ org $2000
+
+ant	ANTIC_PROGRAM scr,ant
+
+scr	SCREEN_DATA
+
+	ALIGN $0400
+fnt	FONTS
+
+	ALIGN $1000
+	org *+$0300
+pmg	SPRITES
+
+main
+;-- init PMG
+ mva >pmg $d407		;missiles and players data address
+ mva #3 $d01d		;enable players and missiles
+
+ lda:cmp:req 20		;wait 1 frame
+
+ sei			;stop interrups
+ mva #0 $d40e		;stop all interrupts
+ mva #$fe $d301		;switch off ROM to get 16k more ram
+
+ mva #scr40 $d400	;set new screen width
+
+;-- RASTER PROGRAM
+LOOP lda $d40b		;synchronization for the first change of screen line
+ cmp #2
+ bne LOOP
+ :3 sta $d40a
+
+;-- wait 56 cycle
+ jsr _rts
+ jsr _rts
+ jsr _rts
+ :4 nop
+ mwa #ant $d402
+
+;-- set global ofset
+ :4 nop
+
+; line=0
+
+ jsr wait24cycle
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+c58 lda #$00
+ sta $D01A
+c59 lda #$B4
+ sta $D01A
+ lda #$00
+ sta $D01E
+
+; line=1
+
+ jsr wait24cycle
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+c60 lda #$00
+ sta $D01A
+c61 lda #$B4
+ sta $D01A
+ lda #$00
+ sta $D01E
+
+; line=2
+
+ jsr wait24cycle
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+c62 lda #$00
+ sta $D01A
+c63 lda #$B4
+ sta $D01A
+ lda #$00
+ sta $D01E
+
+; line=3
+
+ jsr wait24cycle
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+c64 lda #$00
+ sta $D01A
+c65 lda #$B4
+ sta $D01A
+ lda #$00
+ sta $D01E
+
+; line=4
+
+ jsr wait24cycle
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+c66 lda #$00
+ sta $D01A
+c67 lda #$B4
+ sta $D01A
+ lda #$00
+ sta $D01E
+
+; line=5
+
+ jsr wait24cycle
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+c68 lda #$00
+ sta $D01A
+c69 lda #$B4
+ sta $D01A
+ lda #$00
+ sta $D01E
+
+; line=6
+
+ jsr wait24cycle
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+c70 lda #$00
+ sta $D01A
+c71 lda #$B4
+ sta $D01A
+ lda #$00
+ sta $D01E
+
+; line=7
+
+ jsr wait24cycle
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+c72 lda #$00
+ sta $D01A
+c73 lda #$B4
+ sta $D01A
+ lda #$00
+ sta $D01E
+
+; line=8
+
+ jsr wait24cycle
+ cmp byt2
+
+; line=9
+
+ jsr wait24cycle
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+c74 lda #$00
+ sta $D01A
+c75 lda #$B4
+ sta $D01A
+ lda #$00
+ sta $D01E
+
+; line=10
+
+ jsr wait24cycle
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+c76 lda #$00
+ sta $D01A
+c77 lda #$B4
+ sta $D01A
+ lda #$00
+ sta $D01E
+
+; line=11
+
+ jsr wait24cycle
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+c78 lda #$00
+ sta $D01A
+c79 lda #$B4
+ sta $D01A
+ lda #$00
+ sta $D01E
+
+; line=12
+
+ jsr wait24cycle
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+c80 lda #$00
+ sta $D01A
+c81 lda #$B4
+ sta $D01A
+ lda #$00
+ sta $D01E
+
+; line=13
+
+ jsr wait24cycle
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+c82 lda #$00
+ sta $D01A
+c83 lda #$B4
+ sta $D01A
+ lda #$00
+ sta $D01E
+
+; line=14
+
+ jsr wait24cycle
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+c84 lda #$00
+ sta $D01A
+c85 lda #$B4
+ sta $D01A
+ lda #$00
+ sta $D01E
+
+; line=15
+
+ jsr wait24cycle
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+ lda #$00
+ sta $D01E
+c86 lda #$00
+ sta $D01A
+c87 lda #$B4
+ sta $D01A
+ lda #$00
+ sta $D01E
+
+; line=16
+
+ lda #$02
+ ldx #$00
+ ldy #$00
+ sta gtictl
+ stx $d01e
+ sty $d01e
+ lda #$00
+ sta $d01e
+ cmp byt2
+
+; line=17
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=18
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=19
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=20
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=21
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=22
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=23
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=24
+
+c9 lda #$74
+c10 ldx #$74
+ ldy #$00
+ sta colpm2
+ stx colpm3
+ sty $d01e
+ lda #$00
+ sta $d01e
+ cmp byt2
+
+; line=25
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=26
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=27
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=28
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=29
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=30
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=31
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=32
+
+c11 lda #$0A
+c12 ldx #$0A
+ ldy #$00
+ sta colpm2
+ stx colpm3
+ sty $d01e
+ lda #$00
+ sta $d01e
+ cmp byt2
+
+; line=33
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=34
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=35
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=36
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=37
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=38
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=39
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=40
+
+c13 lda #$74
+c14 ldx #$74
+ ldy #$00
+ sta colpm2
+ stx colpm3
+ sty $d01e
+ lda #$00
+ sta $d01e
+ cmp byt2
+
+; line=41
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=42
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=43
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=44
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=45
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=46
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=47
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=48
+
+c15 lda #$0A
+c16 ldx #$0A
+ ldy #$00
+ sta colpm2
+ stx colpm3
+ sty $d01e
+ lda #$00
+ sta $d01e
+ cmp byt2
+
+; line=49
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=50
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=51
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=52
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=53
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=54
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=55
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=56
+
+c17 lda #$74
+c18 ldx #$74
+ ldy #$00
+ sta colpm2
+ stx colpm3
+ sty $d01e
+ lda #$00
+ sta $d01e
+ cmp byt2
+
+; line=57
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=58
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=59
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=60
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=61
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=62
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=63
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=64
+
+c19 lda #$0A
+c20 ldx #$0A
+ ldy #$00
+ sta colpm2
+ stx colpm3
+ sty $d01e
+ lda #$00
+ sta $d01e
+ cmp byt2
+
+; line=65
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=66
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=67
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=68
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=69
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=70
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=71
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=72
+
+c21 lda #$74
+c22 ldx #$74
+ ldy #$00
+ sta colpm2
+ stx colpm3
+ sty $d01e
+ lda #$00
+ sta $d01e
+ cmp byt2
+
+; line=73
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=74
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=75
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=76
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=77
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=78
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=79
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=80
+
+ lda >fnt+$400*$01
+ ldx #$04
+c23 ldy #$0A
+ sta chbase
+ stx gtictl
+ sty colpm2
+c24 lda #$0A
+ sta colpm3
+ cmp byt2
+
+; line=81
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=82
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=83
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=84
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=85
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=86
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=87
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=88
+
+c25 lda #$74
+c26 ldx #$74
+ ldy #$00
+ sta colpm2
+ stx colpm3
+ sty $d01e
+ lda #$00
+ sta $d01e
+ cmp byt2
+
+; line=89
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=90
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=91
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=92
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=93
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=94
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=95
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=96
+
+c27 lda #$0A
+c28 ldx #$0A
+ ldy #$00
+ sta colpm2
+ stx colpm3
+ sty $d01e
+ lda #$00
+ sta $d01e
+ cmp byt2
+
+; line=97
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=98
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=99
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=100
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=101
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=102
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=103
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=104
+
+c29 lda #$74
+c30 ldx #$74
+ ldy #$00
+ sta colpm2
+ stx colpm3
+ sty $d01e
+ lda #$00
+ sta $d01e
+ cmp byt2
+
+; line=105
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=106
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=107
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=108
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=109
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=110
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=111
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=112
+
+c31 lda #$0A
+c32 ldx #$0A
+ ldy #$00
+ sta colpm2
+ stx colpm3
+ sty $d01e
+ lda #$00
+ sta $d01e
+ cmp byt2
+
+; line=113
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=114
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=115
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=116
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=117
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=118
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=119
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=120
+
+c33 lda #$74
+c34 ldx #$74
+ ldy #$00
+ sta colpm2
+ stx colpm3
+ sty $d01e
+ lda #$00
+ sta $d01e
+ cmp byt2
+
+; line=121
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=122
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=123
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=124
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=125
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=126
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=127
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=128
+
+ lda >fnt+$400*$00
+ ldx #$02
+c35 ldy #$0A
+ sta chbase
+ stx gtictl
+ sty colpm2
+c36 lda #$0A
+ sta colpm3
+ cmp byt2
+
+; line=129
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=130
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=131
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=132
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=133
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=134
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=135
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=136
+
+c37 lda #$74
+c38 ldx #$74
+ ldy #$00
+ sta colpm2
+ stx colpm3
+ sty $d01e
+ lda #$00
+ sta $d01e
+ cmp byt2
+
+; line=137
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=138
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=139
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=140
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=141
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=142
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=143
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=144
+
+c39 lda #$0A
+c40 ldx #$0A
+ ldy #$00
+ sta colpm2
+ stx colpm3
+ sty $d01e
+ lda #$00
+ sta $d01e
+ cmp byt2
+
+; line=145
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=146
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=147
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=148
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=149
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=150
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=151
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=152
+
+c41 lda #$74
+c42 ldx #$74
+ ldy #$00
+ sta colpm2
+ stx colpm3
+ sty $d01e
+ lda #$00
+ sta $d01e
+ cmp byt2
+
+; line=153
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=154
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=155
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=156
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=157
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=158
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=159
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=160
+
+c43 lda #$0A
+c44 ldx #$0A
+ ldy #$00
+ sta colpm2
+ stx colpm3
+ sty $d01e
+ lda #$00
+ sta $d01e
+ cmp byt2
+
+; line=161
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=162
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=163
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=164
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=165
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=166
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=167
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=168
+
+c45 lda #$74
+c46 ldx #$74
+ ldy #$00
+ sta colpm2
+ stx colpm3
+ sty $d01e
+ lda #$00
+ sta $d01e
+ cmp byt2
+
+; line=169
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=170
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=171
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=172
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=173
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=174
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=175
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=176
+
+c47 lda #$0A
+c48 ldx #$0A
+ ldy #$00
+ sta colpm2
+ stx colpm3
+ sty $d01e
+ lda #$00
+ sta $d01e
+ cmp byt2
+
+; line=177
+
+c49 lda #$0C
+ ldx #$00
+ ldy #$00
+ sta color3
+ stx $d01e
+ sty $d01e
+ lda #$00
+ sta $d01e
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=178
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=179
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=180
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=181
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=182
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=183
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=184
+
+c50 lda #$74
+c51 ldx #$74
+ ldy #$00
+ sta colpm2
+ stx colpm3
+ sty $d01e
+ lda #$00
+ sta $d01e
+ cmp byt2
+
+; line=185
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=186
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=187
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=188
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=189
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=190
+
+ jsr wait24cycle
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=191
+
+c52 lda #$28
+ ldx #$00
+ ldy #$00
+ sta color1
+ stx $d01e
+ sty $d01e
+ lda #$00
+ sta $d01e
+ lda #$30
+ sta $D002
+ lda #$70
+ sta $D01E
+ sta $D002
+ lda #$90
+ sta $D002
+ lda #$00
+ lda #$B0
+ sta $D002
+ lda #$00
+ sta $D01E
+
+; line=192
+
+ lda >fnt+$400*$01
+ ldx #$04
+ ldy #$00
+ sta chbase
+ stx gtictl
+ sty $d01e
+ lda #$00
+ sta $d01e
+ cmp byt2
+
+; line=193
+
+c53 lda #$1C
+ ldx #$00
+ ldy #$30
+ sta color2
+ stx sizep3
+ sty hposp3
+c54 lda #$00
+ sta colpm3
+ jsr wait36cycle
+
+; line=194
+
+ lda #$03
+ ldx #$00
+ ldy #$00
+ sta sizep3
+ stx $d01e
+ sty $d01e
+ lda #$00
+ sta $d01e
+ jsr wait36cycle
+
+; line=195
+
+ lda #$00
+ ldx #$58
+c55 ldy #$00
+ sta sizep2
+ stx hposp2
+ sty colpm2
+ lda #$00
+ sta $d01e
+ jsr wait36cycle
+
+; line=196
+
+ lda #$03
+ ldx #$00
+ ldy #$00
+ sta sizep2
+ stx $d01e
+ sty $d01e
+ lda #$00
+ sta $d01e
+ jsr wait36cycle
+
+; line=197
+
+ lda #$00
+ ldx #$80
+c56 ldy #$00
+ sta sizep1
+ stx hposp1
+ sty colpm1
+ lda #$00
+ sta $d01e
+ jsr wait36cycle
+
+; line=198
+
+ lda #$03
+ ldx #$00
+ ldy #$00
+ sta sizep1
+ stx $d01e
+ sty $d01e
+ lda #$00
+ sta $d01e
+ jsr wait36cycle
+
+; line=199
+
+ lda #$00
+ ldx #$A8
+c57 ldy #$00
+ sta sizep0
+ stx hposp0
+ sty colpm0
+ lda #$00
+ sta $d01e
+ jsr wait36cycle
+
+; line=200
+
+ lda #$03
+ ldx #$FF
+ ldy #$C8
+ sta sizep0
+ stx sizem
+ sty hposm0
+ lda #$A0
+ sta hposm1
+ cmp byt2
+
+; line=201
+
+ jsr wait60cycle
+
+; line=202
+
+ jsr wait60cycle
+
+; line=203
+
+ jsr wait60cycle
+
+; line=204
+
+ jsr wait60cycle
+
+; line=205
+
+ jsr wait60cycle
+
+; line=206
+
+ jsr wait60cycle
+
+; line=207
+
+ jsr wait60cycle
+
+; line=208
+
+ jsr wait24cycle
+ cmp byt2
+
+; line=209
+
+ jsr wait60cycle
+
+; line=210
+
+ jsr wait60cycle
+
+; line=211
+
+ jsr wait60cycle
+
+; line=212
+
+ jsr wait60cycle
+
+; line=213
+
+ jsr wait60cycle
+
+; line=214
+
+ jsr wait60cycle
+
+; line=215
+
+ jsr wait60cycle
+
+; line=216
+
+ jsr wait24cycle
+ cmp byt2
+
+; line=217
+
+ jsr wait60cycle
+
+; line=218
+
+ jsr wait60cycle
+
+; line=219
+
+ jsr wait60cycle
+
+; line=220
+
+ jsr wait60cycle
+
+; line=221
+
+ jsr wait60cycle
+
+; line=222
+
+ jsr wait60cycle
+
+; line=223
+
+ jsr wait60cycle
+
+; line=224
+
+ lda >fnt+$400*$00
+ ldx #$00
+ ldy #$00
+ sta chbase
+ stx $d01e
+ sty $d01e
+ lda #$00
+ sta $d01e
+ cmp byt2
+
+; line=225
+
+ jsr wait60cycle
+
+; line=226
+
+ jsr wait60cycle
+
+; line=227
+
+ jsr wait60cycle
+
+; line=228
+
+ jsr wait60cycle
+
+; line=229
+
+ jsr wait60cycle
+
+; line=230
+
+ jsr wait60cycle
+
+; line=231
+
+ jsr wait60cycle
+
+; line=232
+
+ jsr wait24cycle
+ cmp byt2
+
+; line=233
+
+ jsr wait60cycle
+
+; line=234
+
+ jsr wait60cycle
+
+; line=235
+
+ jsr wait60cycle
+
+; line=236
+
+ jsr wait60cycle
+
+; line=237
+
+ jsr wait60cycle
+
+; line=238
+
+ jsr wait60cycle
+
+; line=239
+
+ jsr wait60cycle
+
+ lda >fnt+$400*$00
+ sta chbase
+c0 lda #$B4
+ sta colbak
+c1 lda #$36
+ sta color0
+c2 lda #$C8
+ sta color1
+c3 lda #$00
+ sta color2
+c4 lda #$F8
+ sta color3
+ lda #$04
+ sta gtictl
+ lda #$03
+ sta sizep2
+ lda #$03
+ sta sizep3
+ lda #$30
+ sta hposp2
+ lda #$50
+ sta hposp3
+c5 lda #$0A
+ sta colpm2
+c6 lda #$0A
+ sta colpm3
+ lda #$03
+ sta sizep0
+ lda #$03
+ sta sizep1
+ lda #$00
+ sta sizem
+ lda #$69
+ sta hposp0
+ lda #$89
+ sta hposp1
+ lda #$83
+ sta hposm0
+ lda #$90
+ sta hposm1
+c7 lda #$EA
+ sta colpm0
+c8 lda #$EA
+ sta colpm1
+ lda #$78
+ sta hposm2
+ lda #$50
+ sta hposm3
+
+ jmp LOOP
+
+;--
+
+wait60cycle
+ jsr _rts
+ cmp byt3
+wait44cycle
+ inc byt3
+ nop
+wait36cycle
+ jsr _rts
+wait24cycle
+ jsr _rts
+_rts rts
+
+;--
+
+.macro SCREEN_DATA
+ ins 'nibly_ged_OK.scr'
+.endm
+
+.macro ANTIC_PROGRAM
+ dta $44,a(:1)
+ dta 4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4
+ dta $41,a(:2)
+.endm
+
+.macro FONTS
+ ins 'nibly_ged_OK.fnt'
+.endm
+
+;--
+
+.macro SPRITES
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$01,$0A,$00,$0A,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$04,$09,$02,$09,$07,$0D,$07,$09,$03,$0D,$0F,$0F,$0F,$0F,$0F
+ dta $0F,$0E,$0A,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$08,$FE,$FE,$FE,$FE,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+ dta $FF,$FF,$FF,$FE,$FE,$FE,$FE,$08,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$BC,$99,$FB,$B1,$F3,$F3,$F2
+ dta $BB,$F2,$F2,$D2,$F2,$D3,$DF,$DF,$9B,$9B,$12,$00,$00,$00,$00,$00
+ dta $00,$DD,$DD,$D9,$BD,$B5,$F5,$F5,$F5,$F5,$F5,$F4,$F5,$F4,$DC,$DC
+ dta $DC,$D8,$88,$80,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$01,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+ dta $FF,$FF,$FF,$FF,$FF,$FF,$FF,$01,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$20,$20,$20,$20,$20,$60,$20
+ dta $60,$20,$60,$60,$60,$F0,$F0,$F0,$F0,$60,$40,$00,$00,$00,$00,$00
+ dta $00,$B0,$B0,$20,$A0,$A0,$A0,$A0,$B0,$A0,$80,$80,$80,$A0,$B0,$B0
+ dta $B0,$A0,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$08,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+ dta $FF,$FF,$FF,$FF,$FF,$FF,$FF,$08,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$AA,$FB,$AA,$AA,$AA,$AA,$AA,$AA
+ dta $55,$55,$55,$55,$55,$55,$55,$55,$AA,$FF,$AA,$AA,$AA,$AA,$AA,$AA
+ dta $55,$55,$55,$55,$55,$55,$55,$55,$AA,$FF,$AA,$AA,$AA,$AA,$AA,$AA
+ dta $55,$55,$55,$55,$55,$55,$55,$55,$AA,$FF,$AA,$AA,$AA,$AA,$AA,$AA
+ dta $55,$55,$55,$55,$55,$55,$55,$55,$AA,$EA,$AA,$AA,$AA,$AA,$AA,$AA
+ dta $55,$55,$55,$55,$55,$55,$55,$55,$AA,$EA,$AA,$AA,$AA,$AA,$AA,$AA
+ dta $55,$55,$55,$55,$55,$55,$55,$55,$AA,$EA,$AA,$AA,$AA,$AA,$AA,$AA
+ dta $55,$55,$55,$55,$55,$55,$55,$55,$AA,$FF,$AA,$AA,$AA,$AA,$AA,$AA
+ dta $55,$55,$55,$55,$55,$55,$55,$55,$AA,$FF,$AA,$AA,$AA,$AA,$AA,$AA
+ dta $55,$55,$55,$55,$55,$55,$55,$55,$AA,$FF,$AA,$AA,$AA,$AA,$AA,$AA
+ dta $55,$55,$55,$55,$55,$55,$55,$55,$AA,$FF,$AA,$AA,$AA,$AA,$AA,$AA
+ dta $55,$55,$55,$55,$55,$55,$55,$55,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$44,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+ dta $FF,$FF,$FF,$FF,$FF,$FF,$FF,$44,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$AA,$FF,$AA,$AA,$AA,$AA,$AA,$AA
+ dta $55,$55,$55,$55,$55,$55,$55,$55,$AA,$FF,$AA,$AA,$AA,$AA,$AA,$AA
+ dta $55,$55,$55,$55,$55,$55,$55,$55,$AA,$FF,$AA,$AA,$AA,$AA,$AA,$AA
+ dta $55,$55,$55,$55,$55,$55,$55,$55,$AA,$FF,$AA,$AA,$AA,$AA,$AA,$AA
+ dta $55,$55,$55,$55,$55,$55,$55,$55,$A8,$AB,$AA,$AA,$AA,$AA,$AA,$AA
+ dta $55,$55,$55,$55,$55,$55,$55,$55,$AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA
+ dta $55,$55,$55,$55,$55,$55,$55,$55,$AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA
+ dta $55,$55,$55,$55,$55,$55,$55,$55,$AA,$FF,$AA,$AA,$AA,$AA,$AA,$AA
+ dta $55,$55,$55,$55,$55,$55,$55,$55,$AA,$FF,$AA,$AA,$AA,$AA,$AA,$AA
+ dta $55,$55,$55,$55,$55,$55,$55,$55,$AA,$FF,$AA,$AA,$AA,$AA,$AA,$AA
+ dta $55,$55,$55,$55,$55,$55,$55,$55,$AA,$FF,$AA,$AA,$AA,$AA,$AA,$AA
+ dta $55,$55,$55,$55,$55,$55,$55,$55,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$22,$7F,$7F,$7F,$7F,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+ dta $FF,$FF,$FF,$7F,$7F,$7F,$7F,$22,$00,$00,$00,$00,$00,$00,$00,$00
+ dta $00,$00,$00,$00,$00,$00,$00,$00,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+
+.endm
+ run main
+
+ opt l-
+ icl 'nibly_ged_OK.mac'

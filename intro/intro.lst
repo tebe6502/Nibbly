@@ -1,0 +1,217 @@
+Mad-Assembler v1.7.2 by TeBe/Madteam
+Source: D:\!Atari\nibbly\intro\intro.asm
+     1
+     2 				*--- INTRO
+     3
+     4 				 org $2000
+     5
+     6 				intro
+     7
+     8 FFFF> 00,2000-22B5> A9 +	 lda #1
+     9 00,2002 85 52		 sta 82
+    10
+    11 				 clrscr
+Macro: CLRSCR [Source: d:\!atari\macro\clrscr.mac]
+     2 00,2004 A9 7D		 lda #'}'
+     3 00,2006 20 B0 F2		 jsr $f2b0
+Source: D:\!Atari\nibbly\intro\intro.asm
+    12
+    13 				 print ' ' 
+Macro: PRINT [Source: d:\!atari\macro\print.mac]
+     2 00,2009 A2 13		 ldx <text
+     3 00,200B A0 20		 ldy >text
+     4 00,200D 20 42 C6		 jsr $c642
+     5 00,2010 4C 15 20		 jmp _skip
+     7 00,2013 20 9B		text dta ' ',$9b
+     9 00,2015			_skip
+Source: D:\!Atari\nibbly\intro\intro.asm
+    14 				 print '           NIBBLY 14.04.2006'
+Macro: PRINT [Source: d:\!atari\macro\print.mac]
+     2 00,2015 A2 1F		 ldx <text
+     3 00,2017 A0 20		 ldy >text
+     4 00,2019 20 42 C6		 jsr $c642
+     5 00,201C 4C 3C 20		 jmp _skip
+     7 00,201F 20 20 20 20 20 +	text dta '           NIBBLY 14.04.2006',$9b
+     9 00,203C			_skip
+Source: D:\!Atari\nibbly\intro\intro.asm
+    15 				 print '          -------------------' 
+Macro: PRINT [Source: d:\!atari\macro\print.mac]
+     2 00,203C A2 46		 ldx <text
+     3 00,203E A0 20		 ldy >text
+     4 00,2040 20 42 C6		 jsr $c642
+     5 00,2043 4C 64 20		 jmp _skip
+     7 00,2046 20 20 20 20 20 +	text dta '          -------------------',$9b
+     9 00,2064			_skip
+Source: D:\!Atari\nibbly\intro\intro.asm
+    16 				 print ' '
+Macro: PRINT [Source: d:\!atari\macro\print.mac]
+     2 00,2064 A2 6E		 ldx <text
+     3 00,2066 A0 20		 ldy >text
+     4 00,2068 20 42 C6		 jsr $c642
+     5 00,206B 4C 70 20		 jmp _skip
+     7 00,206E 20 9B		text dta ' ',$9b
+     9 00,2070			_skip
+Source: D:\!Atari\nibbly\intro\intro.asm
+    17 				 print '                 CODE                 '*
+Macro: PRINT [Source: d:\!atari\macro\print.mac]
+     2 00,2070 A2 7A		 ldx <text
+     3 00,2072 A0 20		 ldy >text
+     4 00,2074 20 42 C6		 jsr $c642
+     5 00,2077 4C A1 20		 jmp _skip
+     7 00,207A A0 A0 A0 A0 A0 +	text dta '                 CODE                 '*,$9b
+     9 00,20A1			_skip
+Source: D:\!Atari\nibbly\intro\intro.asm
+    18 				 print '           Tomasz TEBE Biela'
+Macro: PRINT [Source: d:\!atari\macro\print.mac]
+     2 00,20A1 A2 AB		 ldx <text
+     3 00,20A3 A0 20		 ldy >text
+     4 00,20A5 20 42 C6		 jsr $c642
+     5 00,20A8 4C C8 20		 jmp _skip
+     7 00,20AB 20 20 20 20 20 +	text dta '           Tomasz TEBE Biela',$9b
+     9 00,20C8			_skip
+Source: D:\!Atari\nibbly\intro\intro.asm
+    19 				 print ' '
+Macro: PRINT [Source: d:\!atari\macro\print.mac]
+     2 00,20C8 A2 D2		 ldx <text
+     3 00,20CA A0 20		 ldy >text
+     4 00,20CC 20 42 C6		 jsr $c642
+     5 00,20CF 4C D4 20		 jmp _skip
+     7 00,20D2 20 9B		text dta ' ',$9b
+     9 00,20D4			_skip
+Source: D:\!Atari\nibbly\intro\intro.asm
+    20 				 print '               GRAPHICS               '*
+Macro: PRINT [Source: d:\!atari\macro\print.mac]
+     2 00,20D4 A2 DE		 ldx <text
+     3 00,20D6 A0 20		 ldy >text
+     4 00,20D8 20 42 C6		 jsr $c642
+     5 00,20DB 4C 05 21		 jmp _skip
+     7 00,20DE A0 A0 A0 A0 A0 +	text dta '               GRAPHICS               '*,$9b
+     9 00,2105			_skip
+Source: D:\!Atari\nibbly\intro\intro.asm
+    21 				 print '          Kamil VIDOL Walaszek'
+Macro: PRINT [Source: d:\!atari\macro\print.mac]
+     2 00,2105 A2 0F		 ldx <text
+     3 00,2107 A0 21		 ldy >text
+     4 00,2109 20 42 C6		 jsr $c642
+     5 00,210C 4C 2E 21		 jmp _skip
+     7 00,210F 20 20 20 20 20 +	text dta '          Kamil VIDOL Walaszek',$9b
+     9 00,212E			_skip
+Source: D:\!Atari\nibbly\intro\intro.asm
+    22 				 print ' '
+Macro: PRINT [Source: d:\!atari\macro\print.mac]
+     2 00,212E A2 38		 ldx <text
+     3 00,2130 A0 21		 ldy >text
+     4 00,2132 20 42 C6		 jsr $c642
+     5 00,2135 4C 3A 21		 jmp _skip
+     7 00,2138 20 9B		text dta ' ',$9b
+     9 00,213A			_skip
+Source: D:\!Atari\nibbly\intro\intro.asm
+    23 				 print '                MUSIC                 '*
+Macro: PRINT [Source: d:\!atari\macro\print.mac]
+     2 00,213A A2 44		 ldx <text
+     3 00,213C A0 21		 ldy >text
+     4 00,213E 20 42 C6		 jsr $c642
+     5 00,2141 4C 6B 21		 jmp _skip
+     7 00,2144 A0 A0 A0 A0 A0 +	text dta '                MUSIC                 '*,$9b
+     9 00,216B			_skip
+Source: D:\!Atari\nibbly\intro\intro.asm
+    24 				 print '          Thomas DRAX Mogensen'
+Macro: PRINT [Source: d:\!atari\macro\print.mac]
+     2 00,216B A2 75		 ldx <text
+     3 00,216D A0 21		 ldy >text
+     4 00,216F 20 42 C6		 jsr $c642
+     5 00,2172 4C 94 21		 jmp _skip
+     7 00,2175 20 20 20 20 20 +	text dta '          Thomas DRAX Mogensen',$9b
+     9 00,2194			_skip
+Source: D:\!Atari\nibbly\intro\intro.asm
+    25 				 print ' ' 
+Macro: PRINT [Source: d:\!atari\macro\print.mac]
+     2 00,2194 A2 9E		 ldx <text
+     3 00,2196 A0 21		 ldy >text
+     4 00,2198 20 42 C6		 jsr $c642
+     5 00,219B 4C A0 21		 jmp _skip
+     7 00,219E 20 9B		text dta ' ',$9b
+     9 00,21A0			_skip
+Source: D:\!Atari\nibbly\intro\intro.asm
+    26 				 print '           SID2POKEY PLAYER           '*
+Macro: PRINT [Source: d:\!atari\macro\print.mac]
+     2 00,21A0 A2 AA		 ldx <text
+     3 00,21A2 A0 21		 ldy >text
+     4 00,21A4 20 42 C6		 jsr $c642
+     5 00,21A7 4C D1 21		 jmp _skip
+     7 00,21AA A0 A0 A0 A0 A0 +	text dta '           SID2POKEY PLAYER           '*,$9b
+     9 00,21D1			_skip
+Source: D:\!Atari\nibbly\intro\intro.asm
+    27 				 print '       Krzysztof SAINT Swiecicki'
+Macro: PRINT [Source: d:\!atari\macro\print.mac]
+     2 00,21D1 A2 DB		 ldx <text
+     3 00,21D3 A0 21		 ldy >text
+     4 00,21D5 20 42 C6		 jsr $c642
+     5 00,21D8 4C FC 21		 jmp _skip
+     7 00,21DB 20 20 20 20 20 +	text dta '       Krzysztof SAINT Swiecicki',$9b
+     9 00,21FC			_skip
+Source: D:\!Atari\nibbly\intro\intro.asm
+    28 				 print ' '
+Macro: PRINT [Source: d:\!atari\macro\print.mac]
+     2 00,21FC A2 06		 ldx <text
+     3 00,21FE A0 22		 ldy >text
+     4 00,2200 20 42 C6		 jsr $c642
+     5 00,2203 4C 08 22		 jmp _skip
+     7 00,2206 20 9B		text dta ' ',$9b
+     9 00,2208			_skip
+Source: D:\!Atari\nibbly\intro\intro.asm
+    29 				 print ' '
+Macro: PRINT [Source: d:\!atari\macro\print.mac]
+     2 00,2208 A2 12		 ldx <text
+     3 00,220A A0 22		 ldy >text
+     4 00,220C 20 42 C6		 jsr $c642
+     5 00,220F 4C 14 22		 jmp _skip
+     7 00,2212 20 9B		text dta ' ',$9b
+     9 00,2214			_skip
+Source: D:\!Atari\nibbly\intro\intro.asm
+    30 				 print '         Hardware Requirements        '*
+Macro: PRINT [Source: d:\!atari\macro\print.mac]
+     2 00,2214 A2 1E		 ldx <text
+     3 00,2216 A0 22		 ldy >text
+     4 00,2218 20 42 C6		 jsr $c642
+     5 00,221B 4C 45 22		 jmp _skip
+     7 00,221E A0 A0 A0 A0 A0 +	text dta '         Hardware Requirements        '*,$9b
+     9 00,2245			_skip
+Source: D:\!Atari\nibbly\intro\intro.asm
+    31 				 print '- CPU 6502, 64kB RAM, ANTIC, POKEY'
+Macro: PRINT [Source: d:\!atari\macro\print.mac]
+     2 00,2245 A2 4F		 ldx <text
+     3 00,2247 A0 22		 ldy >text
+     4 00,2249 20 42 C6		 jsr $c642
+     5 00,224C 4C 72 22		 jmp _skip
+     7 00,224F 2D 20 43 50 55 +	text dta '- CPU 6502, 64kB RAM, ANTIC, POKEY',$9b
+     9 00,2272			_skip
+Source: D:\!Atari\nibbly\intro\intro.asm
+    32 				 print '- Joystick in port 1 (AUTOFIRE=OFF)'
+Macro: PRINT [Source: d:\!atari\macro\print.mac]
+     2 00,2272 A2 7C		 ldx <text
+     3 00,2274 A0 22		 ldy >text
+     4 00,2276 20 42 C6		 jsr $c642
+     5 00,2279 4C A0 22		 jmp _skip
+     7 00,227C 2D 20 4A 6F 79 +	text dta '- Joystick in port 1 (AUTOFIRE=OFF)',$9b
+     9 00,22A0			_skip
+Source: D:\!Atari\nibbly\intro\intro.asm
+    33 				 print '- Color TV'
+Macro: PRINT [Source: d:\!atari\macro\print.mac]
+     2 00,22A0 A2 AA		 ldx <text
+     3 00,22A2 A0 22		 ldy >text
+     4 00,22A4 20 42 C6		 jsr $c642
+     5 00,22A7 4C B5 22		 jmp _skip
+     7 00,22AA 2D 20 43 6F 6C +	text dta '- Color TV',$9b
+     9 00,22B5			_skip
+Source: D:\!Atari\nibbly\intro\intro.asm
+    34
+    35 00,22B5 60		 rts
+    36
+    37 				 .print 'End: ',*
+    38
+    39 00,02E2-02E3> 00 20	 ini intro
+    40
+    41
+Source: d:\!atari\macro\clrscr.mac
+Source: d:\!atari\macro\print.mac
