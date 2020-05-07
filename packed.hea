@@ -1,0 +1,17 @@
+
+ fntCon		= $d800		; adres zestawu znaków dla ekranu CONGRATULATIONS
+ fntTit		= $d800		; adres zestawu znaków dla ekranu tytulowego
+
+ hfntTit	= >fntTit
+ hfntCon	= >fntCon
+
+ logo1		= $e000
+ logo2		= logo1+1920
+
+ litery		= $e000+1920*2
+ scrTit		= $f000
+ buf		= scrTit+544
+
+ scrCon		= $e000
+ pmgCon		= $e000
+ hpmgCon	= >pmgCon

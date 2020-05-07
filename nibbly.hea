@@ -1,0 +1,136 @@
+
+*--- CONSTANTS
+
+inflate_buf	equ $0400
+
+palntsc	equ $d014
+
+scr48	equ %00111111	;screen 48b
+scr40	equ %00111110	;screen 40b
+scr32	equ %00111101	;screen 32b
+
+hposp0	equ $D000
+hposp1	equ $D001
+hposp2	equ $D002
+hposp3	equ $D003
+hposm0	equ $D004
+hposm1	equ $D005
+hposm2	equ $D006
+hposm3	equ $D007
+sizep0	equ $D008
+sizep1	equ $D009
+sizep2	equ $D00A
+sizep3	equ $D00B
+sizem	equ $D00C
+
+colpm0	equ $D012
+colpm1	equ $D013
+colpm2	equ $D014
+colpm3	equ $D015
+color0	equ $D016
+color1	equ $D017
+color2	equ $D018
+color3	equ $D019
+colbak	equ $D01A
+gtictl	equ $D01B
+
+chbase	equ $D409
+
+ulamek	= 163		// wartosc o ktora zwiekszany jest licznik po zjedzeniu "ziarna"
+
+song1	= 1
+song2	= 2
+song3	= 3
+song4	= 4
+song5	= 5
+
+
+*--- PMG
+
+pmg	= $c000		// 2KB dla obiektow PMG
+hpmg	= >pmg
+
+*--- PARAMETRY OBRAZU
+
+@sw	= 40			// szerokosc obrazu w bajtach
+
+scr	= pmg+$800		// adres pamieci obrazu
+@start	= scr+@sw+18*@sw	// pozycja poczatkowa robala
+
+
+*--- ZESTAWY ZNAKOW
+
+fnt	= $d800		// 8 zestawow z poszczegolnymi klatkami faz ruchu
+nap	= fnt+8*$400	// zestaw znakow dla napisow
+
+depack	= nap+$400	// adres dla INFLATE Fox'a
+
+
+*--- LEVELS
+
+lsiz	= 3*9		// liczba bajtow przypadajaca na opis 1 levelu
+lvl_max	= 100		// liczba leveli
+
+
+*--- CHARS
+
+chr_cod = 84		// od tego znaku jest grafika fontow dla CODE
+
+chr	= 20		// od tego znaku zaczynaja sie ksztalty klockow dla 12 faz ruchu
+
+chr_nap	= 20		// od tego znaku modyfikujemy zestaw NAP wstawiajac napis
+
+zpusty	= 1+$80		// "zolty pusty" klocek sklada sie z jednego znaku
+murek	= 2		// "murek" sklada sie z 4 znakow
+ziarno  = 6+$80		// "ziarno" sklada sie z 4 znakow w inwersie
+robal	= 10+$80	// "robal" sklada sie z 4 znakow w inwersie
+
+murek2	= 14
+
+*--- PARAMETRY JOYA
+
+def_joy_delay	= 1	// opoznienie dla odczytu joy'a
+
+
+*--- KIERUNKI RUCHU WG JOYA
+
+@right	= $07
+@left	= $0b
+@up	= $0e
+@down	= $0d
+
+ 
+*--- MOZLIWE KIERUNKI RUCHU
+
+@rr	= @right << 4 + @right
+@ll	= @left << 4 + @left
+@dl	= @down << 4 + @left
+@dr	= @down << 4 + @right
+@ul	= @up << 4 + @left
+@ur	= @up << 4 + @right
+@ld	= @left << 4 + @down
+@lu	= @left << 4 + @up
+@rd	= @right << 4 + @down
+@ru	= @right << 4 + @up
+@dd	= @down << 4 + @down
+@uu	= @up << 4 + @up
+
+.struct phaseidx
+	@rr	.dword
+	@ll	.dword
+	@dl	.dword
+	@dr	.dword
+	@rd	.dword
+	@ru	.dword
+	@ul	.dword
+	@ur	.dword
+	@ld	.dword
+	@lu	.dword
+	@dd	.dword
+	@uu	.dword
+	@right	.dword
+	@left	.dword
+	@up	.dword
+	@down	.dword
+.ends
+

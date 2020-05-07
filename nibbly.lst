@@ -1,0 +1,5649 @@
+mads 2.1.0 build 8 (23 Dec 19)
+Source: nibbly.asm
+     1
+     2 				/*
+     3 				  NIBBLY Engine v1.3 by Tebe/Madteam (05.06.2006)
+     4
+     5 				  21.11.2009  - NTSC msx fix (msx_stop)
+     6
+     7 				  SID2POKEY - $f0..
+     8 				  INFALTE   - $e0..
+     9 				  NIBBLY    - $80..
+    10
+    11 				  Zasady:
+    12 				  - zadaniem jest przejsc 100 poziomow, na kazdym z nich zebrac wszystkie 'kropki' przed uplywem czasu
+    13 				  - limit casu to 2:00 minuty na kazdy poziom, czasu nie mozna zatrzymac
+    14 				  - za kazda zebrana 'kropke' dostajemy 5 punktow
+    15 				  - po zebraniu wszystkich 'kropek' dostajemy 10 punktow za kazda sekunde z czasu ktory nam pozostal
+    16 				  - po kazdych 10.000 punktach dostajemy dodatkowe zycie (maksymalna liczba zyc to 9) <- USUNIETO TA MOZLIWOSC
+    17 				  - na koncu kazdego poziomu pokazywany jest 'kod dostepu' do poziomu, kod dostepu wpisujemy przed gra
+    18 				*/
+    18
+    19
+    20
+    21 				*--- GLOBAL CONSTANTS
+    22
+    23 				 icl 'nibbly.hea'
+Source: nibbly.hea
+     1
+     2 				*--- CONSTANTS
+     3
+     4 = 0400			inflate_buf	equ $0400
+     5
+     6 = D014			palntsc	equ $d014
+     7
+     8 = 003F			scr48	equ %00111111	;screen 48b
+     9 = 003E			scr40	equ %00111110	;screen 40b
+    10 = 003D			scr32	equ %00111101	;screen 32b
+    11
+    12 = D000			hposp0	equ $D000
+    13 = D001			hposp1	equ $D001
+    14 = D002			hposp2	equ $D002
+    15 = D003			hposp3	equ $D003
+    16 = D004			hposm0	equ $D004
+    17 = D005			hposm1	equ $D005
+    18 = D006			hposm2	equ $D006
+    19 = D007			hposm3	equ $D007
+    20 = D008			sizep0	equ $D008
+    21 = D009			sizep1	equ $D009
+    22 = D00A			sizep2	equ $D00A
+    23 = D00B			sizep3	equ $D00B
+    24 = D00C			sizem	equ $D00C
+    25
+    26 = D012			colpm0	equ $D012
+    27 = D013			colpm1	equ $D013
+    28 = D014			colpm2	equ $D014
+    29 = D015			colpm3	equ $D015
+    30 = D016			color0	equ $D016
+    31 = D017			color1	equ $D017
+    32 = D018			color2	equ $D018
+    33 = D019			color3	equ $D019
+    34 = D01A			colbak	equ $D01A
+    35 = D01B			gtictl	equ $D01B
+    36
+    37 = D409			chbase	equ $D409
+    38
+    39 = 00A3			ulamek	= 163		// wartosc o ktora zwiekszany jest licznik po zjedzeniu "ziarna"
+    40
+    41 = 0001			song1	= 1
+    42 = 0002			song2	= 2
+    43 = 0003			song3	= 3
+    44 = 0004			song4	= 4
+    45 = 0005			song5	= 5
+    46
+    47
+    48 				*--- PMG
+    49
+    50 = C000			pmg	= $c000		// 2KB dla obiektow PMG
+    51 = 00C0			hpmg	= >pmg
+    52
+    53 				*--- PARAMETRY OBRAZU
+    54
+    55 = 0028			@sw	= 40			// szerokosc obrazu w bajtach
+    56
+    57 = C800			scr	= pmg+$800		// adres pamieci obrazu
+    58 = CAF8			@start	= scr+@sw+18*@sw	// pozycja poczatkowa robala
+    59
+    60
+    61 				*--- ZESTAWY ZNAKOW
+    62
+    63 = D800			fnt	= $d800		// 8 zestawow z poszczegolnymi klatkami faz ruchu
+    64 = F800			nap	= fnt+8*$400	// zestaw znakow dla napisow
+    65
+    66 = FC00			depack	= nap+$400	// adres dla INFLATE Fox'a
+    67
+    68
+    69 				*--- LEVELS
+    70
+    71 = 001B			lsiz	= 3*9		// liczba bajtow przypadajaca na opis 1 levelu
+    72 = 0064			lvl_max	= 100		// liczba leveli
+    73
+    74
+    75 				*--- CHARS
+    76
+    77 = 0054			chr_cod = 84		// od tego znaku jest grafika fontow dla CODE
+    78
+    79 = 0014			chr	= 20		// od tego znaku zaczynaja sie ksztalty klockow dla 12 faz ruchu
+    80
+    81 = 0014			chr_nap	= 20		// od tego znaku modyfikujemy zestaw NAP wstawiajac napis
+    82
+    83 = 0081			zpusty	= 1+$80		// "zolty pusty" klocek sklada sie z jednego znaku
+    84 = 0002			murek	= 2		// "murek" sklada sie z 4 znakow
+    85 = 0086			ziarno  = 6+$80		// "ziarno" sklada sie z 4 znakow w inwersie
+    86 = 008A			robal	= 10+$80	// "robal" sklada sie z 4 znakow w inwersie
+    87
+    88 = 000E			murek2	= 14
+    89
+    90 				*--- PARAMETRY JOYA
+    91
+    92 = 0001			def_joy_delay	= 1	// opoznienie dla odczytu joy'a
+    93
+    94
+    95 				*--- KIERUNKI RUCHU WG JOYA
+    96
+    97 = 0007			@right	= $07
+    98 = 000B			@left	= $0b
+    99 = 000E			@up	= $0e
+   100 = 000D			@down	= $0d
+   101
+   102 				 
+   103 				*--- MOZLIWE KIERUNKI RUCHU
+   104
+   105 = 0077			@rr	= @right << 4 + @right
+   106 = 00BB			@ll	= @left << 4 + @left
+   107 = 00DB			@dl	= @down << 4 + @left
+   108 = 00D7			@dr	= @down << 4 + @right
+   109 = 00EB			@ul	= @up << 4 + @left
+   110 = 00E7			@ur	= @up << 4 + @right
+   111 = 00BD			@ld	= @left << 4 + @down
+   112 = 00BE			@lu	= @left << 4 + @up
+   113 = 007D			@rd	= @right << 4 + @down
+   114 = 007E			@ru	= @right << 4 + @up
+   115 = 00DD			@dd	= @down << 4 + @down
+   116 = 00EE			@uu	= @up << 4 + @up
+   117
+   118 				.struct phaseidx
+   119 = 0000				@rr	.dword
+   120 = 0004				@ll	.dword
+   121 = 0008				@dl	.dword
+   122 = 000C				@dr	.dword
+   123 = 0010				@rd	.dword
+   124 = 0014				@ru	.dword
+   125 = 0018				@ul	.dword
+   126 = 001C				@ur	.dword
+   127 = 0020				@ld	.dword
+   128 = 0024				@lu	.dword
+   129 = 0028				@dd	.dword
+   130 = 002C				@uu	.dword
+   131 = 0030				@right	.dword
+   132 = 0034				@left	.dword
+   133 = 0038				@up	.dword
+   134 = 003C				@down	.dword
+   135 				.ends
+   136
+    24
+    25 				 icl 'packed.hea'
+Source: packed.hea
+     1
+     2 = D800			 fntCon		= $d800		; adres zestawu znaków dla ekranu CONGRATULATIONS
+     3 = D800			 fntTit		= $d800		; adres zestawu znaków dla ekranu tytulowego
+     4
+     5 = 00D8			 hfntTit	= >fntTit
+     6 = 00D8			 hfntCon	= >fntCon
+     7
+     8 = E000			 logo1		= $e000
+     9 = E780			 logo2		= logo1+1920
+    10
+    11 = EF00			 litery		= $e000+1920*2
+    12 = F000			 scrTit		= $f000
+    13 = F220			 buf		= scrTit+544
+    14
+    15 = E000			 scrCon		= $e000
+    16 = E000			 pmgCon		= $e000
+    17 = 00E0			 hpmgCon	= >pmgCon
+    26
+    27
+    28 = 3400			 prg		= $3400
+    29 = 1000			 prgTitle	= $1000
+    30
+    31 = C000			 txt_temp	= pmg		; $c000 ...
+    32 = C100			 l_adr		= pmg+$100
+    33 = C200			 h_adr		= l_adr+$100
+    34
+    35
+    36 				*--- VARIABLES
+    37
+    38 = 0080			src	=	$80		;(2)
+    39 = 0082			srcOld	=	src+2		;(2)
+    40 = 0084			dst	=	srcOld+2	;(2)
+    41 = 0086			_tmp	=	dst+2		;(2)
+    42 = 0088			idx	=	_tmp+2		;(1)
+    43 = 0089			len	=	idx+1		;(1)
+    44 = 008A			byt2	=	len+1		;(2)
+    45 = 008B			bajt	=	byt2+1		;(1)	tutaj przechowujemy pozycje X ducha dla panelu
+    46 = 008C			gate	=	bajt+1		;(1)
+    47 = 008D			posX	=	gate+1		;(1)
+    48 = 008E			posY	=	posX+1		;(1)
+    49 = 008F			ftmp	=	posY+1		;(2)
+    50
+    51 = 0100			byt3	=	$0100
+    52
+    53 = 00E0			zpage	=	$e0		; 11 bytes
+    54
+    55 = 0014			cloc	=	$14
+    56
+    57
+    58 				*--- INTRO
+    59
+    60 				 org intro_org
+    61
+    62 2000-244A> 00 00 00 00 +  .link 'logo\logo3.obx'
+    63
+    64 02E2-02E3> D0 23		 ini intro
+    65
+    66
+    67 				*--- INITIALIZE
+    68
+    69 244B			 org prg
+    70
+    71 3400-4844> A5 14 C5 14 +  .link 'init.obx'
+    72
+    73 4647			depack_move
+    74 4647			 icl 'inflate.asm'
+Source: inflate.asm
+     1 				; inflate - uncompress data stored in the DEFLATE format
+     2 				; by Piotr Fusik <fox@scene.pl>
+     3 				; Last modified: 2017-11-07
+     4
+     5 				; Compile with xasm (http://xasm.atari.org/), for example:
+     6 				; xasm inflate.asx /l /d:inflate=$b700 /d:inflate_data=$b900 /d:inflate_zp=$f0
+     7 				; inflate is 508 bytes of code and constants
+     8 				; inflate_data is 765 bytes of uninitialized data
+     9 				; inflate_zp is 10 bytes on page zero
+    10
+    11 = 00E0			inflate_zp	= zpage
+    12
+    13 				; Pointer to compressed data
+    14 = 00E0			inputPointer                    equ	inflate_zp    ; 2 bytes
+    15
+    16 				; Pointer to uncompressed data
+    17 = 00E2			outputPointer                   equ	inflate_zp+2  ; 2 bytes
+    18
+    19 				; Local variables
+    20
+    21 = 00E4			getBit_buffer                   equ	inflate_zp+4  ; 1 byte
+    22
+    23 = 00E5			getBits_base                    equ	inflate_zp+5  ; 1 byte
+    24 = 00E5			inflateStored_pageCounter       equ	inflate_zp+5  ; 1 byte
+    25
+    26 = 00E6			inflateCodes_sourcePointer      equ	inflate_zp+6  ; 2 bytes
+    27 = 00E6			inflateDynamic_symbol           equ	inflate_zp+6  ; 1 byte
+    28 = 00E7			inflateDynamic_lastLength       equ	inflate_zp+7  ; 1 byte
+    29 = 00E7			inflateDynamic_tempCodes        equ	inflate_zp+7  ; 1 byte
+    30
+    31 = 00E8			inflateCodes_lengthMinus2       equ	inflate_zp+8  ; 1 byte
+    32 = 00E8			inflateDynamic_allCodes         equ	inflate_zp+8  ; 1 byte
+    33
+    34 = 00E9			inflateDynamic_primaryCodes     equ	inflate_zp+9  ; 1 byte
+    35
+    36
+    37 				; Argument values for getBits
+    38 = 0081			GET_1_BIT                       equ	$81
+    39 = 0082			GET_2_BITS                      equ	$82
+    40 = 0084			GET_3_BITS                      equ	$84
+    41 = 0088			GET_4_BITS                      equ	$88
+    42 = 0090			GET_5_BITS                      equ	$90
+    43 = 00A0			GET_6_BITS                      equ	$a0
+    44 = 00C0			GET_7_BITS                      equ	$c0
+    45
+    46 				; Huffman trees
+    47 = 0010			TREE_SIZE                       equ	16
+    48 = 0000			PRIMARY_TREE                    equ	0
+    49 = 0010			DISTANCE_TREE                   equ	TREE_SIZE
+    50
+    51 				; Alphabet
+    52 = 0020			LENGTH_SYMBOLS                  equ	1+29+2
+    53 = 001E			DISTANCE_SYMBOLS                equ	30
+    54 = 003E			CONTROL_SYMBOLS                 equ	LENGTH_SYMBOLS+DISTANCE_SYMBOLS
+    55
+    56
+    57 				; Uncompress DEFLATE stream starting from the address stored in inputPointer
+    58 				; to the memory starting from the address stored in outputPointer
+    59
+    60
+    61 4647			.proc	INFLATE, depack (.word inputPointer, outputPointer) .var
+    62
+    63 FC00 A0 00 84 E4			mvy	#0	getBit_buffer
+    64 FC04			inflate_blockLoop
+    65 				; Get a bit of EOF and two bits of block type
+    66 				;	ldy	#0
+    67 FC04 84 E5			sty	getBits_base
+    68 FC06 A9 84			lda	#GET_3_BITS
+    69 FC08 20 A4 FD			jsr	getBits
+    70 FC0B 4A				lsr	@
+    71 FC0C 08				php
+    72 FC0D D0 1F			bne	inflateCompressed
+    73
+    74 				; Copy uncompressed block
+    75 				;	ldy	#0
+    76 FC0F 84 E4			sty	getBit_buffer  ; ignore bits until byte boundary
+    77 FC11 20 AD FD			jsr	getWord        ; skip the length we don't need
+    78 FC14 20 AD FD			jsr	getWord        ; get the one's complement length
+    79 FC17 85 E5			sta	inflateStored_pageCounter
+    80 				;	jmp	inflateStored_firstByte
+    81 FC19 B0 06			bcs	inflateStored_firstByte
+    82 FC1B			inflateStored_copyByte
+    83 FC1B 20 B1 FD			jsr	getByte
+    84 FC1E 20 D3 FD			jsr	storeByte
+    85 FC21			inflateStored_firstByte
+    86 FC21 E8				inx
+    87 FC22 D0 F7			bne	inflateStored_copyByte
+    88 FC24 E6 E5			inc	inflateStored_pageCounter
+    89 FC26 D0 F3			bne	inflateStored_copyByte
+    90
+    91 FC28			inflate_nextBlock
+    92 FC28 28				plp
+    93 FC29 90 D9			bcc	inflate_blockLoop
+    94 					
+    95 FC2B A2 00			ldx #0
+    96 = FC2C			@sp	equ *-1
+    97
+    98 FC2D 60				rts
+    99
+   100 FC2E			inflateCompressed
+   101 				; A=1: fixed block, initialize with fixed codes
+   102 				; A=2: dynamic block, start by clearing all code lengths
+   103 				; A=3: invalid compressed data, not handled in this routine
+   104 FC2E 49 02			eor	#2
+   105
+   106 				;	ldy	#0
+   107 FC30			inflateCompressed_setCodeLengths
+   108 FC30 AA				tax
+   109 FC31 F0 05			beq	inflateCompressed_setLiteralCodeLength
+   110 				; fixed Huffman literal codes:
+   111 				; :144 dta 8
+   112 				; :112 dta 9
+   113 FC33 A9 04			lda	#4
+   114 FC35 C0 90			cpy	#144
+   115 FC37 2A				rol	@
+   116 FC38			inflateCompressed_setLiteralCodeLength
+   117 FC38 99 00 04			sta	literalSymbolCodeLength,y
+   118 FC3B F0 0A			beq	inflateCompressed_setControlCodeLength
+   119 				; fixed Huffman control codes:
+   120 				; :24  dta 7
+   121 				; :6   dta 8
+   122 				; :2   dta 8 ; meaningless codes
+   123 				; :30  dta 5+DISTANCE_TREE
+   124 FC3D A9 15			lda	#5+DISTANCE_TREE
+   125 FC3F C0 20			cpy	#LENGTH_SYMBOLS
+   126 FC41 B0 04			bcs	inflateCompressed_setControlCodeLength
+   127 FC43 C0 18			cpy	#24
+   128 FC45 69 F2			adc	#2-DISTANCE_TREE
+   129 FC47			inflateCompressed_setControlCodeLength
+   130 FC47 C0 3E			cpy	#CONTROL_SYMBOLS
+   131 FC49 B0 03 99 00 05		scs:sta	controlSymbolCodeLength,y
+   132 FC4E C8				iny
+   133 FC4F D0 DF			bne	inflateCompressed_setCodeLengths
+   134
+   135 FC51 AA				tax
+   136 FC52 D0 44			bne	inflateCodes
+   137
+   138 				; Decompress a block reading Huffman trees first
+   139
+   140 				; Build the tree for temporary codes
+   141 FC54 20 F8 FC			jsr	buildTempHuffmanTree
+   142
+   143 				; Use temporary codes to get lengths of literal/length and distance codes
+   144 				;	ldx	#0
+   145 				;	sec
+   146 FC57			inflateDynamic_decodeLength
+   147 				; C=1: literal codes
+   148 				; C=0: control codes
+   149 FC57 86 E6			stx	inflateDynamic_symbol
+   150 FC59 08				php
+   151 				; Fetch a temporary code
+   152 FC5A 20 68 FD			jsr	fetchPrimaryCode
+   153 				; Temporary code 0..15: put this length
+   154 FC5D 10 13			bpl	inflateDynamic_verbatimLength
+   155 				; Temporary code 16: repeat last length 3 + getBits(2) times
+   156 				; Temporary code 17: put zero length 3 + getBits(3) times
+   157 				; Temporary code 18: put zero length 11 + getBits(7) times
+   158 FC5F AA				tax
+   159 FC60 20 A4 FD			jsr	getBits
+   160 FC63 E0 84			cpx	#GET_3_BITS
+   161 FC65 90 06			bcc	inflateDynamic_repeatLast
+   162 FC67 F0 02 69 07			seq:adc	#7
+   163 				;	ldy	#0
+   164 FC6B 84 E7			sty	inflateDynamic_lastLength
+   165 FC6D			inflateDynamic_repeatLast
+   166 FC6D A8				tay
+   167 FC6E A5 E7			lda	inflateDynamic_lastLength
+   168 FC70 C8 C8			iny:iny
+   169 FC72			inflateDynamic_verbatimLength
+   170 FC72 C8				iny
+   171 FC73 28				plp
+   172 FC74 A6 E6			ldx	inflateDynamic_symbol
+   173 FC76			inflateDynamic_storeLength
+   174 FC76 90 0D			bcc	inflateDynamic_controlSymbolCodeLength
+   175 FC78 9D 00 04 E8			sta	literalSymbolCodeLength,x+
+   176 FC7C E0 01			cpx	#1
+   177 FC7E			inflateDynamic_storeNext
+   178 FC7E 88				dey
+   179 FC7F D0 F5			bne	inflateDynamic_storeLength
+   180 FC81 85 E7			sta	inflateDynamic_lastLength
+   181 				;	jmp	inflateDynamic_decodeLength
+   182 FC83 F0 D2			beq	inflateDynamic_decodeLength
+   183 FC85			inflateDynamic_controlSymbolCodeLength
+   184 FC85 E4 E9			cpx	inflateDynamic_primaryCodes
+   185 FC87 90 06			bcc	inflateDynamic_storeControl
+   186 				; the code lengths we skip here were zero-initialized
+   187 				; in inflateCompressed_setControlCodeLength
+   188 FC89 D0 02 A2 20			sne:ldx	#LENGTH_SYMBOLS
+   189 FC8D 09 10			ora	#DISTANCE_TREE
+   190 FC8F			inflateDynamic_storeControl
+   191 FC8F 9D 00 05 E8			sta	controlSymbolCodeLength,x+
+   192 FC93 E4 E8			cpx	inflateDynamic_allCodes
+   193 FC95 90 E7			bcc	inflateDynamic_storeNext
+   194 FC97 88				dey
+   195 				;	ldy	#0
+   196
+   197 				; Decompress a block
+   198 FC98			inflateCodes
+   199 FC98 20 1A FD			jsr	buildHuffmanTree
+   200 				;	jmp	inflateCodes_loop
+   201 FC9B F0 03			beq	inflateCodes_loop
+   202 FC9D			inflateCodes_literal
+   203 FC9D 20 D3 FD			jsr	storeByte
+   204 FCA0			inflateCodes_loop
+   205 FCA0 20 68 FD			jsr	fetchPrimaryCode
+   206 FCA3 90 F8			bcc	inflateCodes_literal
+   207 FCA5 F0 81			beq	inflate_nextBlock
+   208 				; Copy sequence from look-behind buffer
+   209 				;	ldy	#0
+   210 FCA7 84 E5			sty	getBits_base
+   211 FCA9 C9 09			cmp	#9
+   212 FCAB 90 14			bcc	inflateCodes_setSequenceLength
+   213 FCAD 98				tya
+   214 				;	lda	#0
+   215 FCAE E0 1D			cpx	#1+28
+   216 FCB0 B0 0F			bcs	inflateCodes_setSequenceLength
+   217 FCB2 CA				dex
+   218 FCB3 8A				txa
+   219 FCB4 4A				lsr	@
+   220 FCB5 66 E5			ror	getBits_base
+   221 FCB7 E6 E5			inc	getBits_base
+   222 FCB9 4A				lsr	@
+   223 FCBA 26 E5			rol	getBits_base
+   224 FCBC 20 9A FD			jsr	getAMinus1BitsMax8
+   225 				;	sec
+   226 FCBF 69 00			adc	#0
+   227 FCC1			inflateCodes_setSequenceLength
+   228 FCC1 85 E8			sta	inflateCodes_lengthMinus2
+   229 FCC3 A2 10			ldx	#DISTANCE_TREE
+   230 FCC5 20 6A FD			jsr	fetchCode
+   231 FCC8 C9 04			cmp	#4
+   232 FCCA 90 06			bcc	inflateCodes_setOffsetLowByte
+   233 FCCC E6 E5			inc	getBits_base
+   234 FCCE 4A				lsr	@
+   235 FCCF 20 9A FD			jsr	getAMinus1BitsMax8
+   236 FCD2			inflateCodes_setOffsetLowByte
+   237 FCD2 49 FF			eor	#$ff
+   238 FCD4 85 E6			sta	inflateCodes_sourcePointer
+   239 FCD6 A5 E5			lda	getBits_base
+   240 FCD8 E0 0A			cpx	#10
+   241 FCDA 90 07			bcc	inflateCodes_setOffsetHighByte
+   242 FCDC BD D4 FD			lda	getNPlus1Bits_mask-10,x
+   243 FCDF 20 A4 FD			jsr	getBits
+   244 FCE2 18				clc
+   245 FCE3			inflateCodes_setOffsetHighByte
+   246 FCE3 49 FF			eor	#$ff
+   247 				;	clc
+   248 FCE5 65 E3			adc	outputPointer+1
+   249 FCE7 85 E7			sta	inflateCodes_sourcePointer+1
+   250 FCE9 20 CD FD			jsr	copyByte
+   251 FCEC 20 CD FD			jsr	copyByte
+   252 FCEF			inflateCodes_copyByte
+   253 FCEF 20 CD FD			jsr	copyByte
+   254 FCF2 C6 E8			dec	inflateCodes_lengthMinus2
+   255 FCF4 D0 F9			bne	inflateCodes_copyByte
+   256 				;	jmp	inflateCodes_loop
+   257 FCF6 F0 A8			beq	inflateCodes_loop
+   258
+   259 				; Get dynamic block header and use it to build the temporary tree
+   260 FCF8			buildTempHuffmanTree
+   261 				;	ldy	#0
+   262 				; numberOfPrimaryCodes = 257 + getBits(5)
+   263 				; numberOfDistanceCodes = 1 + getBits(5)
+   264 				; numberOfTemporaryCodes = 4 + getBits(4)
+   265 FCF8 A2 03			ldx	#3
+   266 FCFA			inflateDynamic_getHeader
+   267 FCFA BD F7 FD			lda	inflateDynamic_headerBits-1,x
+   268 FCFD 20 A4 FD			jsr	getBits
+   269 				;	sec
+   270 FD00 7D FA FD			adc	inflateDynamic_headerBase-1,x
+   271 FD03 95 E6			sta	inflateDynamic_tempCodes-1,x
+   272 FD05 CA				dex
+   273 FD06 D0 F2			bne	inflateDynamic_getHeader
+   274
+   275 				; Get lengths of temporary codes in the order stored in inflateDynamic_tempSymbols
+   276 				;	ldx	#0
+   277 FD08			inflateDynamic_getTempCodeLengths
+   278 FD08 A9 84			lda	#GET_3_BITS
+   279 FD0A 20 A4 FD			jsr	getBits
+   280 FD0D BC E5 FD			ldy	inflateDynamic_tempSymbols,x
+   281 FD10 99 00 04			sta	literalSymbolCodeLength,y
+   282 FD13 A0 00			ldy	#0
+   283 FD15 E8				inx
+   284 FD16 E4 E7			cpx	inflateDynamic_tempCodes
+   285 FD18 90 EE			bcc	inflateDynamic_getTempCodeLengths
+   286
+   287 				; Build Huffman trees basing on code lengths (in bits)
+   288 				; stored in the *SymbolCodeLength arrays
+   289 FD1A			buildHuffmanTree
+   290 				; Clear nBitCode_literalCount, nBitCode_controlCount
+   291 FD1A 98				tya
+   292 				;	lda	#0
+   293 FD1B 99 3E 05 C8 D0 FA		sta:rne	nBitCode_clearFrom,y+
+   294 				; Count number of codes of each length
+   295 				;	ldy	#0
+   296 FD21			buildHuffmanTree_countCodeLengths
+   297 FD21 BE 00 04			ldx	literalSymbolCodeLength,y
+   298 FD24 FE 3E 05			inc	nBitCode_literalCount,x
+   299 FD27 D0 03 8E BE 05		sne:stx	allLiteralsCodeLength
+   300 FD2C C0 3E			cpy	#CONTROL_SYMBOLS
+   301 FD2E B0 06			bcs	buildHuffmanTree_noControlSymbol
+   302 FD30 BE 00 05			ldx	controlSymbolCodeLength,y
+   303 FD33 FE 5E 05			inc	nBitCode_controlCount,x
+   304 FD36			buildHuffmanTree_noControlSymbol
+   305 FD36 C8				iny
+   306 FD37 D0 E8			bne	buildHuffmanTree_countCodeLengths
+   307 				; Calculate offsets of symbols sorted by code length
+   308 				;	lda	#0
+   309 FD39 A2 C0			ldx	#-4*TREE_SIZE
+   310 FD3B			buildHuffmanTree_calculateOffsets
+   311 FD3B 9D BE 04			sta	nBitCode_literalOffset+4*TREE_SIZE-$100,x
+   312 FD3E 18 7D 7E 04			add	nBitCode_literalCount+4*TREE_SIZE-$100,x
+   313 FD42 E8				inx
+   314 FD43 D0 F6			bne	buildHuffmanTree_calculateOffsets
+   315 				; Put symbols in their place in the sorted array
+   316 				;	ldy	#0
+   317 FD45			buildHuffmanTree_assignCode
+   318 FD45 98				tya
+   319 FD46 BE 00 04			ldx	literalSymbolCodeLength,y
+   320 FD49 BC 7E 05 FE 7E 05		ldy:inc	nBitCode_literalOffset,x
+   321 FD4F 99 BF 05			sta	codeToLiteralSymbol,y
+   322 FD52 A8				tay
+   323 FD53 C0 3E			cpy	#CONTROL_SYMBOLS
+   324 FD55 B0 0D			bcs	buildHuffmanTree_noControlSymbol2
+   325 FD57 BE 00 05			ldx	controlSymbolCodeLength,y
+   326 FD5A BC 9E 05 FE 9E 05		ldy:inc	nBitCode_controlOffset,x
+   327 FD60 99 BF 06			sta	codeToControlSymbol,y
+   328 FD63 A8				tay
+   329 FD64			buildHuffmanTree_noControlSymbol2
+   330 FD64 C8				iny
+   331 FD65 D0 DE			bne	buildHuffmanTree_assignCode
+   332 FD67 60				rts
+   333
+   334 				; Read Huffman code using the primary tree
+   335 FD68			fetchPrimaryCode
+   336 FD68 A2 00			ldx	#PRIMARY_TREE
+   337 				; Read a code from input using the tree specified in X,
+   338 				; return low byte of this code in A,
+   339 				; return C flag reset for literal code, set for length code
+   340 FD6A			fetchCode
+   341 				;	ldy	#0
+   342 FD6A 98				tya
+   343 FD6B			fetchCode_nextBit
+   344 FD6B 20 BA FD			jsr	getBit
+   345 FD6E 2A				rol	@
+   346 FD6F E8				inx
+   347 FD70 B0 14			bcs	fetchCode_ge256
+   348 				; are all 256 literal codes of this length?
+   349 FD72 EC BE 05			cpx	allLiteralsCodeLength
+   350 FD75 F0 0D			beq	fetchCode_allLiterals
+   351 				; is it literal code of length X?
+   352 FD77 38 FD 3E 05			sub	nBitCode_literalCount,x
+   353 FD7B B0 0D			bcs	fetchCode_notLiteral
+   354 				; literal code
+   355 				;	clc
+   356 FD7D 7D 7E 05			adc	nBitCode_literalOffset,x
+   357 FD80 AA				tax
+   358 FD81 BD BF 05			lda	codeToLiteralSymbol,x
+   359 FD84			fetchCode_allLiterals
+   360 FD84 18				clc
+   361 FD85 60				rts
+   362 				; code >= 256, must be control
+   363 FD86			fetchCode_ge256
+   364 				;	sec
+   365 FD86 FD 3E 05			sbc	nBitCode_literalCount,x
+   366 FD89 38				sec
+   367 				; is it control code of length X?
+   368 FD8A			fetchCode_notLiteral
+   369 				;	sec
+   370 FD8A FD 5E 05			sbc	nBitCode_controlCount,x
+   371 FD8D B0 DC			bcs	fetchCode_nextBit
+   372 				; control code
+   373 				;	clc
+   374 FD8F 7D 9E 05			adc	nBitCode_controlOffset,x
+   375 FD92 AA				tax
+   376 FD93 BD BF 06			lda	codeToControlSymbol,x
+   377 FD96 29 1F			and	#$1f	; make distance symbols zero-based
+   378 FD98 AA				tax
+   379 				;	sec
+   380 FD99 60				rts
+   381
+   382 				; Read A minus 1 bits, but no more than 8
+   383 FD9A			getAMinus1BitsMax8
+   384 FD9A 26 E5			rol	getBits_base
+   385 FD9C AA				tax
+   386 FD9D C9 09			cmp	#9
+   387 FD9F B0 10			bcs	getByte
+   388 FDA1 BD DC FD			lda	getNPlus1Bits_mask-2,x
+   389 FDA4			getBits
+   390 FDA4 20 B3 FD			jsr	getBits_loop
+   391 FDA7			getBits_normalizeLoop
+   392 FDA7 46 E5			lsr	getBits_base
+   393 FDA9 6A				ror	@
+   394 FDAA 90 FB			bcc	getBits_normalizeLoop
+   395 FDAC 60				rts
+   396
+   397 				; Read 16 bits
+   398 FDAD			getWord
+   399 FDAD 20 B1 FD			jsr	getByte
+   400 FDB0 AA				tax
+   401 				; Read 8 bits
+   402 FDB1			getByte
+   403 FDB1 A9 80			lda	#$80
+   404 FDB3			getBits_loop
+   405 FDB3 20 BA FD			jsr	getBit
+   406 FDB6 6A				ror	@
+   407 FDB7 90 FA			bcc	getBits_loop
+   408 FDB9 60				rts
+   409
+   410 				; Read one bit, return in the C flag
+   411 FDBA			getBit
+   412 FDBA 46 E4			lsr	getBit_buffer
+   413 FDBC D0 0E			bne	getBit_return
+   414 FDBE 48				pha
+   415 				;	ldy	#0
+   416 FDBF B1 E0			lda	(inputPointer),y
+   417 FDC1 E6 E0 D0 02 E6 E1		inw	inputPointer
+   418 FDC7 38				sec
+   419 FDC8 6A				ror	@
+   420 FDC9 85 E4			sta	getBit_buffer
+   421 FDCB 68				pla
+   422 FDCC			getBit_return
+   423 FDCC 60				rts
+   424
+   425 				; Copy a previously written byte
+   426 FDCD			copyByte
+   427 FDCD A4 E2			ldy	outputPointer
+   428 FDCF B1 E6			lda	(inflateCodes_sourcePointer),y
+   429 FDD1 A0 00			ldy	#0
+   430 				; Write a byte
+   431 FDD3			storeByte
+   432 				;	ldy	#0
+   433 FDD3 91 E2			sta	(outputPointer),y
+   434 FDD5 E6 E2			inc	outputPointer
+   435 FDD7 D0 04			bne	storeByte_return
+   436 FDD9 E6 E3			inc	outputPointer+1
+   437 FDDB E6 E7			inc	inflateCodes_sourcePointer+1
+   438 FDDD			storeByte_return
+   439 FDDD 60				rts
+   440
+   441 FDDE			getNPlus1Bits_mask
+   442 FDDE 81 82 84 88 90 A0 + 	dta	GET_1_BIT,GET_2_BITS,GET_3_BITS,GET_4_BITS,GET_5_BITS,GET_6_BITS,GET_7_BITS
+   443
+   444 FDE5			inflateDynamic_tempSymbols
+   445 FDE5 82 84 C0 00 08 07 + 	dta	GET_2_BITS,GET_3_BITS,GET_7_BITS,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15
+   446
+   447 FDF8			inflateDynamic_headerBits
+   448 FDF8 88 90 90			dta	GET_4_BITS,GET_5_BITS,GET_5_BITS
+   449 FDFB			inflateDynamic_headerBase
+   450 FDFB 03 20 00			dta	3,LENGTH_SYMBOLS,0
+   451
+   452 				; Data for building trees
+   453
+   454 = 0400			literalSymbolCodeLength		equ inflate_buf
+   455 = 0500			controlSymbolCodeLength		equ literalSymbolCodeLength+256
+   456
+   457 				; Huffman trees
+   458
+   459 = 053E			nBitCode_clearFrom		equ controlSymbolCodeLength+CONTROL_SYMBOLS
+   460 = 053E			nBitCode_literalCount		equ controlSymbolCodeLength+CONTROL_SYMBOLS
+   461 = 055E			nBitCode_controlCount		equ nBitCode_literalCount+2*TREE_SIZE
+   462 = 057E			nBitCode_literalOffset		equ nBitCode_controlCount+2*TREE_SIZE
+   463 = 059E			nBitCode_controlOffset		equ nBitCode_literalOffset+2*TREE_SIZE
+   464 = 05BE			allLiteralsCodeLength		equ nBitCode_controlOffset+2*TREE_SIZE
+   465 = 05BF			codeToLiteralSymbol		equ allLiteralsCodeLength+1
+   466 = 06BF			codeToControlSymbol		equ codeToLiteralSymbol+256
+   467
+   468 				.endp
+    75
+    76 02E2-02E3> 00 34		 ini prg
+    77
+    78
+    79 				*--- MAIN PROGRAM
+    80
+    81 4845			 org prg
+    82
+    83 3400			ant
+    84 3400-4F19> 70 60 4E 42 +  dta $70,$60,$4e,a(gorny_pasek),$44+$80,a(scr+40)
+    85 3408 84 04		 dta 4+$80,4
+    86 340A 04 04 04 04 04 04 +  dta 4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4+$80,4
+    87 341D CE 42 34 60		 dta $4e+$80,a(gorny_pasek),$60
+    88 3421 4E 6A 34 0E 0E 0E +  dta $4e,a(panel+000),$e,$e,$e,$e,$8e,$e,$e
+    89 342B 4F AA 35 0F 0F 0F +  dta $4f,a(panel+320),$f,$f,$f,$f,$f,$f,$f
+    90 3435 4E EA 36 0E 0E 0E +  dta $4e,a(panel+640),$e,$e,$e,$e,$e,$e,$e
+    91 343F 41 00 34		 dta $41,a(ant)
+    92
+    93 3442 55 55 55 55 55 55 + gorny_pasek	:40 dta $55
+    94 				;dolny_pasek	:40 dta $55
+    95
+    96 346A			panel
+    97 346A 00 00 00 00 00 00 +  ins 'panel\panel_2.raw',640,320*3
+    98
+    99 = 35AC			panel_lives	= panel+320+2
+   100 = 35CD			panel_round	= panel+320+35
+   101 = 35BE			panel_clock	= panel+320+20
+   102 = 35B0			panel_punkt	= panel+320+6
+   103
+   104
+   105 382A			.local dli
+   106 382A				icl 'dli.asm'
+Source: dli.asm
+     1
+     2 				/*
+     3 				  Program DLI i program rastra
+     4
+     5 				  Aktualizacja panelu wpleciona zostala w kod programu zmian rastra
+     6 				*/
+     6
+     7
+     8
+     9 = 382A				?old_dli = *
+    10
+    11
+    12 382A			dli0
+    13 382A A9 74		_c0 lda #$74
+    14 382C 8D 0A D4		 sta $d40a
+    15 382F 8D 17 D0		 sta color1
+    16
+    17 3832			 dli_quit dli0_1
+Macro: DLI.DLI_QUIT [Source: dli.asm]
+     3 3832 A9 3A 8D 1B 57	   mva <DLI0_1 vdli+1
+     8 3837 4C CB 57		  jmp nmiQ
+    10 = 383A			  .def ?old_dli
+Source: dli.asm
+    18
+    19 				*---
+    20
+    21 383A			dli0_1
+    22 				; line=32
+    23
+    24 383A A9 22		 lda #$22
+    25 383C A2 00		 ldx #$00
+    26 = 383D			lives equ *-1
+    27 383E A0 36		_c9 ldy #$36
+    28 3840 8D 0A D4		 sta $d40a
+    29 3843 8D 1B D0		 sta gtictl
+    30 3846 8E 1E D0		 stx $d01e
+    31 3849 8C 17 D0		 sty color1
+    32 				; lda #$00
+    33 				; sta $d01e
+    34 384C EE 00 01		 inc byt3
+    35 384F C5 8A		 cmp byt2
+    36
+    37 				; line=33
+    38
+    39 3851 20 F3 4C		 jsr wait24cycle
+    40 3854 A9 30		 lda #$30
+    41 3856 8D 02 D0		 sta $D002
+    42 3859 A9 70		 lda #$70
+    43 				; sta $D01E
+    44 385B BC 14 8D		 ldy cyfry+20,x
+    45 385E 8D 02 D0		 sta $D002
+    46 3861 A9 90		 lda #$90
+    47 3863 8D 02 D0		 sta $D002
+    48 3866 A9 00		 lda #$00
+    49 3868 A9 B0		 lda #$B0
+    50 386A 8D 02 D0		 sta $D002
+    51 386D A9 00		 lda #$00
+    52 386F 8C FC 35		 sty panel_lives+40*2
+    53
+    54 				; line=34
+    55
+    56 3872 20 F3 4C		 jsr wait24cycle
+    57 3875 A9 30		 lda #$30
+    58 3877 8D 02 D0		 sta $D002
+    59 387A A9 70		 lda #$70
+    60 				; sta $D01E
+    61 387C BC 1E 8D		 ldy cyfry+30,x
+    62 387F 8D 02 D0		 sta $D002
+    63 3882 A9 90		 lda #$90
+    64 3884 8D 02 D0		 sta $D002
+    65 3887 A9 00		 lda #$00
+    66 3889 A9 B0		 lda #$B0
+    67 388B 8D 02 D0		 sta $D002
+    68 388E A9 00		 lda #$00
+    69 3890 8C 24 36		 sty panel_lives+40*3
+    70
+    71 				; line=35
+    72
+    73 3893 20 F3 4C		 jsr wait24cycle
+    74 3896 A9 30		 lda #$30
+    75 3898 8D 02 D0		 sta $D002
+    76 389B A9 70		 lda #$70
+    77 				; sta $D01E
+    78 389D BC 28 8D		 ldy cyfry+40,x
+    79 38A0 8D 02 D0		 sta $D002
+    80 38A3 A9 90		 lda #$90
+    81 38A5 8D 02 D0		 sta $D002
+    82 38A8 A9 00		 lda #$00
+    83 38AA A9 B0		 lda #$B0
+    84 38AC 8D 02 D0		 sta $D002
+    85 38AF A9 00		 lda #$00
+    86 38B1 8C 4C 36		 sty panel_lives+40*4
+    87
+    88 				; line=36
+    89
+    90 38B4 20 F3 4C		 jsr wait24cycle
+    91 38B7 A9 30		 lda #$30
+    92 38B9 8D 02 D0		 sta $D002
+    93 38BC A9 70		 lda #$70
+    94 				; sta $D01E
+    95 38BE BC 32 8D		 ldy cyfry+50,x
+    96 38C1 8D 02 D0		 sta $D002
+    97 38C4 A9 90		 lda #$90
+    98 38C6 8D 02 D0		 sta $D002
+    99 38C9 A9 00		 lda #$00
+   100 38CB A9 B0		 lda #$B0
+   101 38CD 8D 02 D0		 sta $D002
+   102 38D0 A9 00		 lda #$00
+   103 38D2 8C 74 36		 sty panel_lives+40*5
+   104
+   105 				; line=37
+   106
+   107 38D5 20 F3 4C		 jsr wait24cycle
+   108 38D8 A9 30		 lda #$30
+   109 38DA 8D 02 D0		 sta $D002
+   110 38DD A9 70		 lda #$70
+   111 				; sta $D01E
+   112 38DF BC 3C 8D		 ldy cyfry+60,x
+   113 38E2 8D 02 D0		 sta $D002
+   114 38E5 A9 90		 lda #$90
+   115 38E7 8D 02 D0		 sta $D002
+   116 38EA A9 00		 lda #$00
+   117 38EC A9 B0		 lda #$B0
+   118 38EE 8D 02 D0		 sta $D002
+   119 38F1 A9 00		 lda #$00
+   120 38F3 8C 9C 36		 sty panel_lives+40*6
+   121
+   122 				; line=38
+   123
+   124 38F6 20 F3 4C		 jsr wait24cycle
+   125 38F9 A9 30		 lda #$30
+   126 38FB 8D 02 D0		 sta $D002
+   127 38FE A9 70		 lda #$70
+   128 3900 8D 1E D0		 sta $D01E
+   129 3903 8D 02 D0		 sta $D002
+   130 3906 A9 90		 lda #$90
+   131 3908 8D 02 D0		 sta $D002
+   132 390B A9 00		 lda #$00
+   133 390D A9 B0		 lda #$B0
+   134 390F 8D 02 D0		 sta $D002
+   135 3912 A9 00		 lda #$00
+   136 3914 8D 1E D0		 sta $D01E
+   137
+   138 				; line=39
+   139
+   140 3917 20 F3 4C		 jsr wait24cycle
+   141 391A A9 30		 lda #$30
+   142 391C 8D 02 D0		 sta $D002
+   143 391F A9 70		 lda #$70
+   144 3921 8D 1E D0		 sta $D01E
+   145 3924 8D 02 D0		 sta $D002
+   146 3927 A9 90		 lda #$90
+   147 3929 8D 02 D0		 sta $D002
+   148 392C A9 00		 lda #$00
+   149 392E A9 B0		 lda #$B0
+   150 3930 8D 02 D0		 sta $D002
+   151 3933 A9 00		 lda #$00
+   152 3935 8D 1E D0		 sta $D01E
+   153
+   154 				; line=40
+   155
+   156 3938 A9 74		c13 lda #$74
+   157 393A A2 74		 ldx #$74
+   158 393C A0 00		 ldy #$00
+   159 393E 8D 14 D0		 sta colpm2
+   160 3941 8D 15 D0		 sta colpm3
+   161 3944 8C 1E D0		 sty $d01e
+   162 3947 A2 00		 ldx #$00
+   163 = 3948			round_0 equ *-1
+   164 3949 8D 1E D0		 sta $d01e
+   165 394C C5 8A		 cmp byt2
+   166
+   167 				; line=41
+   168
+   169 394E 20 F3 4C		 jsr wait24cycle
+   170 3951 A9 30		 lda #$30
+   171 3953 8D 02 D0		 sta $D002
+   172 3956 A9 70		 lda #$70
+   173 				; sta $D01E
+   174 3958 BC 14 8D		 ldy cyfry+20,x
+   175 395B 8D 02 D0		 sta $D002
+   176 395E A9 90		 lda #$90
+   177 3960 8D 02 D0		 sta $D002
+   178 3963 A9 00		 lda #$00
+   179 3965 A9 B0		 lda #$B0
+   180 3967 8D 02 D0		 sta $D002
+   181 396A A9 00		 lda #$00
+   182 396C 8C 1D 36		 sty panel_round+40*2
+   183
+   184 				; line=42
+   185
+   186 396F 20 F3 4C		 jsr wait24cycle
+   187 3972 A9 30		 lda #$30
+   188 3974 8D 02 D0		 sta $D002
+   189 3977 A9 70		 lda #$70
+   190 				; sta $D01E
+   191 3979 BC 1E 8D		 ldy cyfry+30,x
+   192 397C 8D 02 D0		 sta $D002
+   193 397F A9 90		 lda #$90
+   194 3981 8D 02 D0		 sta $D002
+   195 3984 A9 00		 lda #$00
+   196 3986 A9 B0		 lda #$B0
+   197 3988 8D 02 D0		 sta $D002
+   198 398B A9 00		 lda #$00
+   199 398D 8C 45 36		 sty panel_round+40*3
+   200
+   201 				; line=43
+   202
+   203 3990 20 F3 4C		 jsr wait24cycle
+   204 3993 A9 30		 lda #$30
+   205 3995 8D 02 D0		 sta $D002
+   206 3998 A9 70		 lda #$70
+   207 				; sta $D01E
+   208 399A BC 28 8D		 ldy cyfry+40,x
+   209 399D 8D 02 D0		 sta $D002
+   210 39A0 A9 90		 lda #$90
+   211 39A2 8D 02 D0		 sta $D002
+   212 39A5 A9 00		 lda #$00
+   213 39A7 A9 B0		 lda #$B0
+   214 39A9 8D 02 D0		 sta $D002
+   215 39AC A9 00		 lda #$00
+   216 39AE 8C 6D 36		 sty panel_round+40*4
+   217
+   218 				; line=44
+   219
+   220 39B1 20 F3 4C		 jsr wait24cycle
+   221 39B4 A9 30		 lda #$30
+   222 39B6 8D 02 D0		 sta $D002
+   223 39B9 A9 70		 lda #$70
+   224 				; sta $D01E
+   225 39BB BC 32 8D		 ldy cyfry+50,x
+   226 39BE 8D 02 D0		 sta $D002
+   227 39C1 A9 90		 lda #$90
+   228 39C3 8D 02 D0		 sta $D002
+   229 39C6 A9 00		 lda #$00
+   230 39C8 A9 B0		 lda #$B0
+   231 39CA 8D 02 D0		 sta $D002
+   232 39CD A9 00		 lda #$00
+   233 39CF 8C 95 36		 sty panel_round+40*5
+   234
+   235 				; line=45
+   236
+   237 39D2 20 F3 4C		 jsr wait24cycle
+   238 39D5 A9 30		 lda #$30
+   239 39D7 8D 02 D0		 sta $D002
+   240 39DA A9 70		 lda #$70
+   241 				; sta $D01E
+   242 39DC BC 3C 8D		 ldy cyfry+60,x
+   243 39DF 8D 02 D0		 sta $D002
+   244 39E2 A9 90		 lda #$90
+   245 39E4 8D 02 D0		 sta $D002
+   246 39E7 A9 00		 lda #$00
+   247 39E9 A9 B0		 lda #$B0
+   248 39EB 8D 02 D0		 sta $D002
+   249 39EE A9 00		 lda #$00
+   250 39F0 8C BD 36		 sty panel_round+40*6
+   251
+   252 				; line=46
+   253
+   254 39F3 20 F3 4C		 jsr wait24cycle
+   255 39F6 A9 30		 lda #$30
+   256 39F8 8D 02 D0		 sta $D002
+   257 39FB A9 70		 lda #$70
+   258 39FD 8D 1E D0		 sta $D01E
+   259 3A00 8D 02 D0		 sta $D002
+   260 3A03 A9 90		 lda #$90
+   261 3A05 8D 02 D0		 sta $D002
+   262 3A08 A9 00		 lda #$00
+   263 3A0A A9 B0		 lda #$B0
+   264 3A0C 8D 02 D0		 sta $D002
+   265 3A0F A9 00		 lda #$00
+   266 3A11 8D 1E D0		 sta $D01E
+   267
+   268 				; line=47
+   269
+   270 3A14 20 F3 4C		 jsr wait24cycle
+   271 3A17 A9 30		 lda #$30
+   272 3A19 8D 02 D0		 sta $D002
+   273 3A1C A9 70		 lda #$70
+   274 3A1E 8D 1E D0		 sta $D01E
+   275 3A21 8D 02 D0		 sta $D002
+   276 3A24 A9 90		 lda #$90
+   277 3A26 8D 02 D0		 sta $D002
+   278 3A29 A9 00		 lda #$00
+   279 3A2B A9 B0		 lda #$B0
+   280 3A2D 8D 02 D0		 sta $D002
+   281 3A30 A9 00		 lda #$00
+   282 3A32 8D 1E D0		 sta $D01E
+   283
+   284 				; line=48
+   285
+   286 3A35 A9 0A		c15 lda #$0A
+   287 3A37 A2 0A		 ldx #$0A
+   288 3A39 A0 00		 ldy #$00
+   289 3A3B 8D 14 D0		 sta colpm2
+   290 3A3E 8D 15 D0		 sta colpm3
+   291 3A41 8C 1E D0		 sty $d01e
+   292 3A44 A2 00		 ldx #$00
+   293 = 3A45			round_1 equ *-1
+   294 3A46 8D 1E D0		 sta $d01e
+   295 3A49 C5 8A		 cmp byt2
+   296
+   297 				; line=49
+   298
+   299 3A4B 20 F3 4C		 jsr wait24cycle
+   300 3A4E A9 30		 lda #$30
+   301 3A50 8D 02 D0		 sta $D002
+   302 3A53 A9 70		 lda #$70
+   303 				; sta $D01E
+   304 3A55 BC 14 8D		 ldy cyfry+20,x
+   305 3A58 8D 02 D0		 sta $D002
+   306 3A5B A9 90		 lda #$90
+   307 3A5D 8D 02 D0		 sta $D002
+   308 3A60 A9 00		 lda #$00
+   309 3A62 A9 B0		 lda #$B0
+   310 3A64 8D 02 D0		 sta $D002
+   311 3A67 A9 00		 lda #$00
+   312 3A69 8C 1E 36		 sty panel_round+40*2+1
+   313
+   314 				; line=50
+   315
+   316 3A6C 20 F3 4C		 jsr wait24cycle
+   317 3A6F A9 30		 lda #$30
+   318 3A71 8D 02 D0		 sta $D002
+   319 3A74 A9 70		 lda #$70
+   320 				; sta $D01E
+   321 3A76 BC 1E 8D		 ldy cyfry+30,x
+   322 3A79 8D 02 D0		 sta $D002
+   323 3A7C A9 90		 lda #$90
+   324 3A7E 8D 02 D0		 sta $D002
+   325 3A81 A9 00		 lda #$00
+   326 3A83 A9 B0		 lda #$B0
+   327 3A85 8D 02 D0		 sta $D002
+   328 3A88 A9 00		 lda #$00
+   329 3A8A 8C 46 36		 sty panel_round+40*3+1
+   330
+   331 				; line=51
+   332
+   333 3A8D 20 F3 4C		 jsr wait24cycle
+   334 3A90 A9 30		 lda #$30
+   335 3A92 8D 02 D0		 sta $D002
+   336 3A95 A9 70		 lda #$70
+   337 				; sta $D01E
+   338 3A97 BC 28 8D		 ldy cyfry+40,x
+   339 3A9A 8D 02 D0		 sta $D002
+   340 3A9D A9 90		 lda #$90
+   341 3A9F 8D 02 D0		 sta $D002
+   342 3AA2 A9 00		 lda #$00
+   343 3AA4 A9 B0		 lda #$B0
+   344 3AA6 8D 02 D0		 sta $D002
+   345 3AA9 A9 00		 lda #$00
+   346 3AAB 8C 6E 36		 sty panel_round+40*4+1
+   347
+   348 				; line=52
+   349
+   350 3AAE 20 F3 4C		 jsr wait24cycle
+   351 3AB1 A9 30		 lda #$30
+   352 3AB3 8D 02 D0		 sta $D002
+   353 3AB6 A9 70		 lda #$70
+   354 				; sta $D01E
+   355 3AB8 BC 32 8D		 ldy cyfry+50,x
+   356 3ABB 8D 02 D0		 sta $D002
+   357 3ABE A9 90		 lda #$90
+   358 3AC0 8D 02 D0		 sta $D002
+   359 3AC3 A9 00		 lda #$00
+   360 3AC5 A9 B0		 lda #$B0
+   361 3AC7 8D 02 D0		 sta $D002
+   362 3ACA A9 00		 lda #$00
+   363 3ACC 8C 96 36		 sty panel_round+40*5+1
+   364
+   365 				; line=53
+   366
+   367 3ACF 20 F3 4C		 jsr wait24cycle
+   368 3AD2 A9 30		 lda #$30
+   369 3AD4 8D 02 D0		 sta $D002
+   370 3AD7 A9 70		 lda #$70
+   371 				; sta $D01E
+   372 3AD9 BC 3C 8D		 ldy cyfry+60,x
+   373 3ADC 8D 02 D0		 sta $D002
+   374 3ADF A9 90		 lda #$90
+   375 3AE1 8D 02 D0		 sta $D002
+   376 3AE4 A9 00		 lda #$00
+   377 3AE6 A9 B0		 lda #$B0
+   378 3AE8 8D 02 D0		 sta $D002
+   379 3AEB A9 00		 lda #$00
+   380 3AED 8C BE 36		 sty panel_round+40*6+1
+   381
+   382 				; line=54
+   383
+   384 3AF0 20 F3 4C		 jsr wait24cycle
+   385 3AF3 A9 30		 lda #$30
+   386 3AF5 8D 02 D0		 sta $D002
+   387 3AF8 A9 70		 lda #$70
+   388 3AFA 8D 1E D0		 sta $D01E
+   389 3AFD 8D 02 D0		 sta $D002
+   390 3B00 A9 90		 lda #$90
+   391 3B02 8D 02 D0		 sta $D002
+   392 3B05 A9 00		 lda #$00
+   393 3B07 A9 B0		 lda #$B0
+   394 3B09 8D 02 D0		 sta $D002
+   395 3B0C A9 00		 lda #$00
+   396 3B0E 8D 1E D0		 sta $D01E
+   397
+   398 				; line=55
+   399
+   400 3B11 20 F3 4C		 jsr wait24cycle
+   401 3B14 A9 30		 lda #$30
+   402 3B16 8D 02 D0		 sta $D002
+   403 3B19 A9 70		 lda #$70
+   404 3B1B 8D 1E D0		 sta $D01E
+   405 3B1E 8D 02 D0		 sta $D002
+   406 3B21 A9 90		 lda #$90
+   407 3B23 8D 02 D0		 sta $D002
+   408 3B26 A9 00		 lda #$00
+   409 3B28 A9 B0		 lda #$B0
+   410 3B2A 8D 02 D0		 sta $D002
+   411 3B2D A9 00		 lda #$00
+   412 3B2F 8D 1E D0		 sta $D01E
+   413
+   414 				; line=56
+   415
+   416 3B32 A9 74		c17 lda #$74
+   417 3B34 A2 74		 ldx #$74
+   418 3B36 A0 00		 ldy #$00
+   419 3B38 8D 14 D0		 sta colpm2
+   420 3B3B 8D 15 D0		 sta colpm3
+   421 3B3E 8C 1E D0		 sty $d01e
+   422 3B41 A2 00		 ldx #$00
+   423 = 3B42			round_2 equ *-1
+   424 3B43 8D 1E D0		 sta $d01e
+   425 3B46 C5 8A		 cmp byt2
+   426
+   427 				; line=57
+   428
+   429 3B48 20 F3 4C		 jsr wait24cycle
+   430 3B4B A9 30		 lda #$30
+   431 3B4D 8D 02 D0		 sta $D002
+   432 3B50 A9 70		 lda #$70
+   433 				; sta $D01E
+   434 3B52 BC 14 8D		 ldy cyfry+20,x
+   435 3B55 8D 02 D0		 sta $D002
+   436 3B58 A9 90		 lda #$90
+   437 3B5A 8D 02 D0		 sta $D002
+   438 3B5D A9 00		 lda #$00
+   439 3B5F A9 B0		 lda #$B0
+   440 3B61 8D 02 D0		 sta $D002
+   441 3B64 A9 00		 lda #$00
+   442 3B66 8C 1F 36		 sty panel_round+40*2+2
+   443
+   444 				; line=58
+   445
+   446 3B69 20 F3 4C		 jsr wait24cycle
+   447 3B6C A9 30		 lda #$30
+   448 3B6E 8D 02 D0		 sta $D002
+   449 3B71 A9 70		 lda #$70
+   450 				; sta $D01E
+   451 3B73 BC 1E 8D		 ldy cyfry+30,x
+   452 3B76 8D 02 D0		 sta $D002
+   453 3B79 A9 90		 lda #$90
+   454 3B7B 8D 02 D0		 sta $D002
+   455 3B7E A9 00		 lda #$00
+   456 3B80 A9 B0		 lda #$B0
+   457 3B82 8D 02 D0		 sta $D002
+   458 3B85 A9 00		 lda #$00
+   459 3B87 8C 47 36		 sty panel_round+40*3+2
+   460
+   461 				; line=59
+   462
+   463 3B8A 20 F3 4C		 jsr wait24cycle
+   464 3B8D A9 30		 lda #$30
+   465 3B8F 8D 02 D0		 sta $D002
+   466 3B92 A9 70		 lda #$70
+   467 				; sta $D01E
+   468 3B94 BC 28 8D		 ldy cyfry+40,x
+   469 3B97 8D 02 D0		 sta $D002
+   470 3B9A A9 90		 lda #$90
+   471 3B9C 8D 02 D0		 sta $D002
+   472 3B9F A9 00		 lda #$00
+   473 3BA1 A9 B0		 lda #$B0
+   474 3BA3 8D 02 D0		 sta $D002
+   475 3BA6 A9 00		 lda #$00
+   476 3BA8 8C 6F 36		 sty panel_round+40*4+2
+   477
+   478 				; line=60
+   479
+   480 3BAB 20 F3 4C		 jsr wait24cycle
+   481 3BAE A9 30		 lda #$30
+   482 3BB0 8D 02 D0		 sta $D002
+   483 3BB3 A9 70		 lda #$70
+   484 				; sta $D01E
+   485 3BB5 BC 32 8D		 ldy cyfry+50,x
+   486 3BB8 8D 02 D0		 sta $D002
+   487 3BBB A9 90		 lda #$90
+   488 3BBD 8D 02 D0		 sta $D002
+   489 3BC0 A9 00		 lda #$00
+   490 3BC2 A9 B0		 lda #$B0
+   491 3BC4 8D 02 D0		 sta $D002
+   492 3BC7 A9 00		 lda #$00
+   493 3BC9 8C 97 36		 sty panel_round+40*5+2
+   494
+   495 				; line=61
+   496
+   497 3BCC 20 F3 4C		 jsr wait24cycle
+   498 3BCF A9 30		 lda #$30
+   499 3BD1 8D 02 D0		 sta $D002
+   500 3BD4 A9 70		 lda #$70
+   501 				; sta $D01E
+   502 3BD6 BC 3C 8D		 ldy cyfry+60,x
+   503 3BD9 8D 02 D0		 sta $D002
+   504 3BDC A9 90		 lda #$90
+   505 3BDE 8D 02 D0		 sta $D002
+   506 3BE1 A9 00		 lda #$00
+   507 3BE3 A9 B0		 lda #$B0
+   508 3BE5 8D 02 D0		 sta $D002
+   509 3BE8 A9 00		 lda #$00
+   510 3BEA 8C BF 36		 sty panel_round+40*6+2
+   511
+   512 				; line=62
+   513
+   514 3BED 20 F3 4C		 jsr wait24cycle
+   515 3BF0 A9 30		 lda #$30
+   516 3BF2 8D 02 D0		 sta $D002
+   517 3BF5 A9 70		 lda #$70
+   518 3BF7 8D 1E D0		 sta $D01E
+   519 3BFA 8D 02 D0		 sta $D002
+   520 3BFD A9 90		 lda #$90
+   521 3BFF 8D 02 D0		 sta $D002
+   522 3C02 A9 00		 lda #$00
+   523 3C04 A9 B0		 lda #$B0
+   524 3C06 8D 02 D0		 sta $D002
+   525 3C09 A9 00		 lda #$00
+   526 3C0B 8D 1E D0		 sta $D01E
+   527
+   528 				; line=63
+   529
+   530 3C0E 20 F3 4C		 jsr wait24cycle
+   531 3C11 A9 30		 lda #$30
+   532 3C13 8D 02 D0		 sta $D002
+   533 3C16 A9 70		 lda #$70
+   534 3C18 8D 1E D0		 sta $D01E
+   535 3C1B 8D 02 D0		 sta $D002
+   536 3C1E A9 90		 lda #$90
+   537 3C20 8D 02 D0		 sta $D002
+   538 3C23 A9 00		 lda #$00
+   539 3C25 A9 B0		 lda #$B0
+   540 3C27 8D 02 D0		 sta $D002
+   541 3C2A A9 00		 lda #$00
+   542 3C2C 8D 1E D0		 sta $D01E
+   543
+   544 				; line=64
+   545
+   546 3C2F A9 0A		c19 lda #$0A
+   547 3C31 A2 0A		 ldx #$0A
+   548 3C33 A0 00		 ldy #$00
+   549 3C35 8D 14 D0		 sta colpm2
+   550 3C38 8D 15 D0		 sta colpm3
+   551 3C3B 8C 1E D0		 sty $d01e
+   552 3C3E A2 00		 ldx #$00
+   553 = 3C3F			clock_1 equ *-1
+   554 3C40 8D 1E D0		 sta $d01e
+   555 3C43 C5 8A		 cmp byt2
+   556
+   557 				; line=65
+   558
+   559 3C45 20 F3 4C		 jsr wait24cycle
+   560 3C48 A9 30		 lda #$30
+   561 3C4A 8D 02 D0		 sta $D002
+   562 3C4D A9 70		 lda #$70
+   563 				; sta $D01E
+   564 3C4F BC 14 8D		 ldy cyfry+20,x
+   565 3C52 8D 02 D0		 sta $D002
+   566 3C55 A9 90		 lda #$90
+   567 3C57 8D 02 D0		 sta $D002
+   568 3C5A A9 00		 lda #$00
+   569 3C5C A9 B0		 lda #$B0
+   570 3C5E 8D 02 D0		 sta $D002
+   571 3C61 A9 00		 lda #$00
+   572 3C63 8C 0F 36		 sty panel_clock+40*2+1
+   573
+   574 				; line=66
+   575
+   576 3C66 20 F3 4C		 jsr wait24cycle
+   577 3C69 A9 30		 lda #$30
+   578 3C6B 8D 02 D0		 sta $D002
+   579 3C6E A9 70		 lda #$70
+   580 				; sta $D01E
+   581 3C70 BC 1E 8D		 ldy cyfry+30,x
+   582 3C73 8D 02 D0		 sta $D002
+   583 3C76 A9 90		 lda #$90
+   584 3C78 8D 02 D0		 sta $D002
+   585 3C7B A9 00		 lda #$00
+   586 3C7D A9 B0		 lda #$B0
+   587 3C7F 8D 02 D0		 sta $D002
+   588 3C82 A9 00		 lda #$00
+   589 3C84 8C 37 36		 sty panel_clock+40*3+1
+   590
+   591 				; line=67
+   592
+   593 3C87 20 F3 4C		 jsr wait24cycle
+   594 3C8A A9 30		 lda #$30
+   595 3C8C 8D 02 D0		 sta $D002
+   596 3C8F A9 70		 lda #$70
+   597 				; sta $D01E
+   598 3C91 BC 28 8D		 ldy cyfry+40,x
+   599 3C94 8D 02 D0		 sta $D002
+   600 3C97 A9 90		 lda #$90
+   601 3C99 8D 02 D0		 sta $D002
+   602 3C9C A9 00		 lda #$00
+   603 3C9E A9 B0		 lda #$B0
+   604 3CA0 8D 02 D0		 sta $D002
+   605 3CA3 A9 00		 lda #$00
+   606 3CA5 8C 5F 36		 sty panel_clock+40*4+1
+   607
+   608 				; line=68
+   609
+   610 3CA8 20 F3 4C		 jsr wait24cycle
+   611 3CAB A9 30		 lda #$30
+   612 3CAD 8D 02 D0		 sta $D002
+   613 3CB0 A9 70		 lda #$70
+   614 				; sta $D01E
+   615 3CB2 BC 32 8D		 ldy cyfry+50,x
+   616 3CB5 8D 02 D0		 sta $D002
+   617 3CB8 A9 90		 lda #$90
+   618 3CBA 8D 02 D0		 sta $D002
+   619 3CBD A9 00		 lda #$00
+   620 3CBF A9 B0		 lda #$B0
+   621 3CC1 8D 02 D0		 sta $D002
+   622 3CC4 A9 00		 lda #$00
+   623 3CC6 8C 87 36		 sty panel_clock+40*5+1
+   624
+   625 				; line=69
+   626
+   627 3CC9 20 F3 4C		 jsr wait24cycle
+   628 3CCC A9 30		 lda #$30
+   629 3CCE 8D 02 D0		 sta $D002
+   630 3CD1 A9 70		 lda #$70
+   631 				; sta $D01E
+   632 3CD3 BC 3C 8D		 ldy cyfry+60,x
+   633 3CD6 8D 02 D0		 sta $D002
+   634 3CD9 A9 90		 lda #$90
+   635 3CDB 8D 02 D0		 sta $D002
+   636 3CDE A9 00		 lda #$00
+   637 3CE0 A9 B0		 lda #$B0
+   638 3CE2 8D 02 D0		 sta $D002
+   639 3CE5 A9 00		 lda #$00
+   640 3CE7 8C AF 36		 sty panel_clock+40*6+1
+   641
+   642 				; line=70
+   643
+   644 3CEA 20 F3 4C		 jsr wait24cycle
+   645 3CED A9 30		 lda #$30
+   646 3CEF 8D 02 D0		 sta $D002
+   647 3CF2 A9 70		 lda #$70
+   648 3CF4 8D 1E D0		 sta $D01E
+   649 3CF7 8D 02 D0		 sta $D002
+   650 3CFA A9 90		 lda #$90
+   651 3CFC 8D 02 D0		 sta $D002
+   652 3CFF A9 00		 lda #$00
+   653 3D01 A9 B0		 lda #$B0
+   654 3D03 8D 02 D0		 sta $D002
+   655 3D06 A9 00		 lda #$00
+   656 3D08 8D 1E D0		 sta $D01E
+   657
+   658 				; line=71
+   659
+   660 3D0B 20 F3 4C		 jsr wait24cycle
+   661 3D0E A9 30		 lda #$30
+   662 3D10 8D 02 D0		 sta $D002
+   663 3D13 A9 70		 lda #$70
+   664 3D15 8D 1E D0		 sta $D01E
+   665 3D18 8D 02 D0		 sta $D002
+   666 3D1B A9 90		 lda #$90
+   667 3D1D 8D 02 D0		 sta $D002
+   668 3D20 A9 00		 lda #$00
+   669 3D22 A9 B0		 lda #$B0
+   670 3D24 8D 02 D0		 sta $D002
+   671 3D27 A9 00		 lda #$00
+   672 3D29 8D 1E D0		 sta $D01E
+   673
+   674 				; line=72
+   675
+   676 3D2C A9 74		c21 lda #$74
+   677 3D2E A2 74		 ldx #$74
+   678 3D30 A0 00		 ldy #$00
+   679 3D32 8D 14 D0		 sta colpm2
+   680 3D35 8D 15 D0		 sta colpm3
+   681 3D38 8C 1E D0		 sty $d01e
+   682 3D3B A2 00		 ldx #$00
+   683 = 3D3C			clock_3 equ *-1
+   684 3D3D 8D 1E D0		 sta $d01e
+   685 3D40 C5 8A		 cmp byt2
+   686
+   687 				; line=73
+   688
+   689 3D42 20 F3 4C		 jsr wait24cycle
+   690 3D45 A9 30		 lda #$30
+   691 3D47 8D 02 D0		 sta $D002
+   692 3D4A A9 70		 lda #$70
+   693 				; sta $D01E
+   694 3D4C BC 14 8D		 ldy cyfry+20,x
+   695 3D4F 8D 02 D0		 sta $D002
+   696 3D52 A9 90		 lda #$90
+   697 3D54 8D 02 D0		 sta $D002
+   698 3D57 A9 00		 lda #$00
+   699 3D59 A9 B0		 lda #$B0
+   700 3D5B 8D 02 D0		 sta $D002
+   701 3D5E A9 00		 lda #$00
+   702 3D60 8C 11 36		 sty panel_clock+40*2+3
+   703
+   704 				; line=74
+   705
+   706 3D63 20 F3 4C		 jsr wait24cycle
+   707 3D66 A9 30		 lda #$30
+   708 3D68 8D 02 D0		 sta $D002
+   709 3D6B A9 70		 lda #$70
+   710 				; sta $D01E
+   711 3D6D BC 1E 8D		 ldy cyfry+30,x
+   712 3D70 8D 02 D0		 sta $D002
+   713 3D73 A9 90		 lda #$90
+   714 3D75 8D 02 D0		 sta $D002
+   715 3D78 A9 00		 lda #$00
+   716 3D7A A9 B0		 lda #$B0
+   717 3D7C 8D 02 D0		 sta $D002
+   718 3D7F A9 00		 lda #$00
+   719 3D81 8C 39 36		 sty panel_clock+40*3+3
+   720
+   721 				; line=75
+   722
+   723 3D84 20 F3 4C		 jsr wait24cycle
+   724 3D87 A9 30		 lda #$30
+   725 3D89 8D 02 D0		 sta $D002
+   726 3D8C A9 70		 lda #$70
+   727 				; sta $D01E
+   728 3D8E BC 28 8D		 ldy cyfry+40,x
+   729 3D91 8D 02 D0		 sta $D002
+   730 3D94 A9 90		 lda #$90
+   731 3D96 8D 02 D0		 sta $D002
+   732 3D99 A9 00		 lda #$00
+   733 3D9B A9 B0		 lda #$B0
+   734 3D9D 8D 02 D0		 sta $D002
+   735 3DA0 A9 00		 lda #$00
+   736 3DA2 8C 61 36		 sty panel_clock+40*4+3
+   737
+   738 				; line=76
+   739
+   740 3DA5 20 F3 4C		 jsr wait24cycle
+   741 3DA8 A9 30		 lda #$30
+   742 3DAA 8D 02 D0		 sta $D002
+   743 3DAD A9 70		 lda #$70
+   744 				; sta $D01E
+   745 3DAF BC 32 8D		 ldy cyfry+50,x
+   746 3DB2 8D 02 D0		 sta $D002
+   747 3DB5 A9 90		 lda #$90
+   748 3DB7 8D 02 D0		 sta $D002
+   749 3DBA A9 00		 lda #$00
+   750 3DBC A9 B0		 lda #$B0
+   751 3DBE 8D 02 D0		 sta $D002
+   752 3DC1 A9 00		 lda #$00
+   753 3DC3 8C 89 36		 sty panel_clock+40*5+3
+   754
+   755 				; line=77
+   756
+   757 3DC6 20 F3 4C		 jsr wait24cycle
+   758 3DC9 A9 30		 lda #$30
+   759 3DCB 8D 02 D0		 sta $D002
+   760 3DCE A9 70		 lda #$70
+   761 				; sta $D01E
+   762 3DD0 BC 3C 8D		 ldy cyfry+60,x
+   763 3DD3 8D 02 D0		 sta $D002
+   764 3DD6 A9 90		 lda #$90
+   765 3DD8 8D 02 D0		 sta $D002
+   766 3DDB A9 00		 lda #$00
+   767 3DDD A9 B0		 lda #$B0
+   768 3DDF 8D 02 D0		 sta $D002
+   769 3DE2 A9 00		 lda #$00
+   770 3DE4 8C B1 36		 sty panel_clock+40*6+3
+   771
+   772 				; line=78
+   773
+   774 3DE7 20 F3 4C		 jsr wait24cycle
+   775 3DEA A9 30		 lda #$30
+   776 3DEC 8D 02 D0		 sta $D002
+   777 3DEF A9 70		 lda #$70
+   778 3DF1 8D 1E D0		 sta $D01E
+   779 3DF4 8D 02 D0		 sta $D002
+   780 3DF7 A9 90		 lda #$90
+   781 3DF9 8D 02 D0		 sta $D002
+   782 3DFC A9 00		 lda #$00
+   783 3DFE A9 B0		 lda #$B0
+   784 3E00 8D 02 D0		 sta $D002
+   785 3E03 A9 00		 lda #$00
+   786 3E05 8D 1E D0		 sta $D01E
+   787
+   788 				; line=79
+   789
+   790 3E08 20 F3 4C		 jsr wait24cycle
+   791 3E0B A9 30		 lda #$30
+   792 3E0D 8D 02 D0		 sta $D002
+   793 3E10 A9 70		 lda #$70
+   794 3E12 8D 1E D0		 sta $D01E
+   795 3E15 8D 02 D0		 sta $D002
+   796 3E18 A9 90		 lda #$90
+   797 3E1A 8D 02 D0		 sta $D002
+   798 3E1D A9 00		 lda #$00
+   799 3E1F A9 B0		 lda #$B0
+   800 3E21 8D 02 D0		 sta $D002
+   801 3E24 A9 00		 lda #$00
+   802 3E26 8D 1E D0		 sta $D01E
+   803
+   804 				; line=80
+   805
+   806 3E29 A9 D8		f0 lda >fnt		// tutaj wlaczamy zestaw z napisem
+   807 3E2B A2 24		nap_gti ldx #$24
+   808 3E2D A0 0A		c23 ldy #$0A
+   809 3E2F 8D 09 D4		 sta chbase
+   810 3E32 8E 1B D0		 stx gtictl
+   811 3E35 8C 14 D0		 sty colpm2
+   812 3E38 A9 0A		 lda #$0A
+   813 3E3A 8C 15 D0		 sty colpm3
+   814 3E3D C5 8A		 cmp byt2
+   815
+   816 				; line=81
+   817
+   818 3E3F 20 F3 4C		 jsr wait24cycle
+   819 3E42 A9 30		 lda #$30
+   820 3E44 8D 02 D0		 sta $D002
+   821 3E47 A9 70		 lda #$70
+   822 3E49 8D 1E D0		 sta $D01E
+   823 3E4C 8D 02 D0		 sta $D002
+   824 3E4F A9 90		 lda #$90
+   825 3E51 8D 02 D0		 sta $D002
+   826 3E54 A2 00		 ldx #$00
+   827 = 3E55			clock_4 equ *-1
+   828 3E56 A9 B0		 lda #$B0
+   829 3E58 8D 02 D0		 sta $D002
+   830 3E5B A9 00		 lda #$00
+   831 3E5D 8D 1E D0		 sta $D01E
+   832
+   833 				; line=82
+   834
+   835 3E60 20 F3 4C		 jsr wait24cycle
+   836 3E63 A9 30		 lda #$30
+   837 3E65 8D 02 D0		 sta $D002
+   838 3E68 A9 70		 lda #$70
+   839 				; sta $D01E
+   840 3E6A BC 14 8D		 ldy cyfry+20,x
+   841 3E6D 8D 02 D0		 sta $D002
+   842 3E70 A9 90		 lda #$90
+   843 3E72 8D 02 D0		 sta $D002
+   844 3E75 A9 00		 lda #$00
+   845 3E77 A9 B0		 lda #$B0
+   846 3E79 8D 02 D0		 sta $D002
+   847 3E7C A9 00		 lda #$00
+   848 3E7E 8C 12 36		 sty panel_clock+40*2+4
+   849
+   850 				; line=83
+   851
+   852 3E81 20 F3 4C		 jsr wait24cycle
+   853 3E84 A9 30		 lda #$30
+   854 3E86 8D 02 D0		 sta $D002
+   855 3E89 A9 70		 lda #$70
+   856 				; sta $D01E
+   857 3E8B BC 1E 8D		 ldy cyfry+30,x
+   858 3E8E 8D 02 D0		 sta $D002
+   859 3E91 A9 90		 lda #$90
+   860 3E93 8D 02 D0		 sta $D002
+   861 3E96 A9 00		 lda #$00
+   862 3E98 A9 B0		 lda #$B0
+   863 3E9A 8D 02 D0		 sta $D002
+   864 3E9D A9 00		 lda #$00
+   865 3E9F 8C 3A 36		 sty panel_clock+40*3+4
+   866
+   867 				; line=84
+   868
+   869 3EA2 20 F3 4C		 jsr wait24cycle
+   870 3EA5 A9 30		 lda #$30
+   871 3EA7 8D 02 D0		 sta $D002
+   872 3EAA A9 70		 lda #$70
+   873 				; sta $D01E
+   874 3EAC BC 28 8D		 ldy cyfry+40,x
+   875 3EAF 8D 02 D0		 sta $D002
+   876 3EB2 A9 90		 lda #$90
+   877 3EB4 8D 02 D0		 sta $D002
+   878 3EB7 A9 00		 lda #$00
+   879 3EB9 A9 B0		 lda #$B0
+   880 3EBB 8D 02 D0		 sta $D002
+   881 3EBE A9 00		 lda #$00
+   882 3EC0 8C 62 36		 sty panel_clock+40*4+4
+   883
+   884 				; line=85
+   885
+   886 3EC3 20 F3 4C		 jsr wait24cycle
+   887 3EC6 A9 30		 lda #$30
+   888 3EC8 8D 02 D0		 sta $D002
+   889 3ECB A9 70		 lda #$70
+   890 				; sta $D01E
+   891 3ECD BC 32 8D		 ldy cyfry+50,x
+   892 3ED0 8D 02 D0		 sta $D002
+   893 3ED3 A9 90		 lda #$90
+   894 3ED5 8D 02 D0		 sta $D002
+   895 3ED8 A9 00		 lda #$00
+   896 3EDA A9 B0		 lda #$B0
+   897 3EDC 8D 02 D0		 sta $D002
+   898 3EDF A9 00		 lda #$00
+   899 3EE1 8C 8A 36		 sty panel_clock+40*5+4
+   900
+   901 				; line=86
+   902
+   903 3EE4 20 F3 4C		 jsr wait24cycle
+   904 3EE7 A9 30		 lda #$30
+   905 3EE9 8D 02 D0		 sta $D002
+   906 3EEC A9 70		 lda #$70
+   907 				; sta $D01E
+   908 3EEE BC 3C 8D		 ldy cyfry+60,x
+   909 3EF1 8D 02 D0		 sta $D002
+   910 3EF4 A9 90		 lda #$90
+   911 3EF6 8D 02 D0		 sta $D002
+   912 3EF9 A9 00		 lda #$00
+   913 3EFB A9 B0		 lda #$B0
+   914 3EFD 8D 02 D0		 sta $D002
+   915 3F00 A9 00		 lda #$00
+   916 3F02 8C B2 36		 sty panel_clock+40*6+4
+   917
+   918 				; line=87
+   919
+   920 3F05 20 F3 4C		 jsr wait24cycle
+   921 3F08 A9 30		 lda #$30
+   922 3F0A 8D 02 D0		 sta $D002
+   923 3F0D A9 70		 lda #$70
+   924 3F0F 8D 1E D0		 sta $D01E
+   925 3F12 8D 02 D0		 sta $D002
+   926 3F15 A9 90		 lda #$90
+   927 3F17 8D 02 D0		 sta $D002
+   928 3F1A A9 00		 lda #$00
+   929 3F1C A9 B0		 lda #$B0
+   930 3F1E 8D 02 D0		 sta $D002
+   931 3F21 A9 00		 lda #$00
+   932 3F23 8D 1E D0		 sta $D01E
+   933
+   934 				; line=88
+   935
+   936 3F26 A9 74		c25 lda #$74
+   937 3F28 A2 74		 ldx #$74
+   938 3F2A A0 00		 ldy #$00
+   939 3F2C 8D 14 D0		 sta colpm2
+   940 3F2F 8D 15 D0		 sta colpm3
+   941 3F32 8C 1E D0		 sty $d01e
+   942 3F35 A2 00		 ldx #$00
+   943 = 3F36			punkt_0 equ *-1
+   944 3F37 8D 1E D0		 sta $d01e
+   945 3F3A C5 8A		 cmp byt2
+   946
+   947 				; line=89
+   948
+   949 3F3C 20 F3 4C		 jsr wait24cycle
+   950 3F3F A9 30		 lda #$30
+   951 3F41 8D 02 D0		 sta $D002
+   952 3F44 A9 70		 lda #$70
+   953 				; sta $D01E
+   954 3F46 BC 14 8D		 ldy cyfry+20,x
+   955 3F49 8D 02 D0		 sta $D002
+   956 3F4C A9 90		 lda #$90
+   957 3F4E 8D 02 D0		 sta $D002
+   958 3F51 A9 00		 lda #$00
+   959 3F53 A9 B0		 lda #$B0
+   960 3F55 8D 02 D0		 sta $D002
+   961 3F58 A9 00		 lda #$00
+   962 3F5A 8C 00 36		 sty panel_punkt+40*2+0
+   963
+   964 				; line=90
+   965
+   966 3F5D 20 F3 4C		 jsr wait24cycle
+   967 3F60 A9 30		 lda #$30
+   968 3F62 8D 02 D0		 sta $D002
+   969 3F65 A9 70		 lda #$70
+   970 				; sta $D01E
+   971 3F67 BC 1E 8D		 ldy cyfry+30,x
+   972 3F6A 8D 02 D0		 sta $D002
+   973 3F6D A9 90		 lda #$90
+   974 3F6F 8D 02 D0		 sta $D002
+   975 3F72 A9 00		 lda #$00
+   976 3F74 A9 B0		 lda #$B0
+   977 3F76 8D 02 D0		 sta $D002
+   978 3F79 A9 00		 lda #$00
+   979 3F7B 8C 28 36		 sty panel_punkt+40*3+0
+   980
+   981 				; line=91
+   982
+   983 3F7E 20 F3 4C		 jsr wait24cycle
+   984 3F81 A9 30		 lda #$30
+   985 3F83 8D 02 D0		 sta $D002
+   986 3F86 A9 70		 lda #$70
+   987 				; sta $D01E
+   988 3F88 BC 28 8D		 ldy cyfry+40,x
+   989 3F8B 8D 02 D0		 sta $D002
+   990 3F8E A9 90		 lda #$90
+   991 3F90 8D 02 D0		 sta $D002
+   992 3F93 A9 00		 lda #$00
+   993 3F95 A9 B0		 lda #$B0
+   994 3F97 8D 02 D0		 sta $D002
+   995 3F9A A9 00		 lda #$00
+   996 3F9C 8C 50 36		 sty panel_punkt+40*4+0
+   997
+   998 				; line=92
+   999
+  1000 3F9F 20 F3 4C		 jsr wait24cycle
+  1001 3FA2 A9 30		 lda #$30
+  1002 3FA4 8D 02 D0		 sta $D002
+  1003 3FA7 A9 70		 lda #$70
+  1004 				; sta $D01E
+  1005 3FA9 BC 32 8D		 ldy cyfry+50,x
+  1006 3FAC 8D 02 D0		 sta $D002
+  1007 3FAF A9 90		 lda #$90
+  1008 3FB1 8D 02 D0		 sta $D002
+  1009 3FB4 A9 00		 lda #$00
+  1010 3FB6 A9 B0		 lda #$B0
+  1011 3FB8 8D 02 D0		 sta $D002
+  1012 3FBB A9 00		 lda #$00
+  1013 3FBD 8C 78 36		 sty panel_punkt+40*5+0
+  1014
+  1015 				; line=93
+  1016
+  1017 3FC0 20 F3 4C		 jsr wait24cycle
+  1018 3FC3 A9 30		 lda #$30
+  1019 3FC5 8D 02 D0		 sta $D002
+  1020 3FC8 A9 70		 lda #$70
+  1021 				; sta $D01E
+  1022 3FCA BC 3C 8D		 ldy cyfry+60,x
+  1023 3FCD 8D 02 D0		 sta $D002
+  1024 3FD0 A9 90		 lda #$90
+  1025 3FD2 8D 02 D0		 sta $D002
+  1026 3FD5 A9 00		 lda #$00
+  1027 3FD7 A9 B0		 lda #$B0
+  1028 3FD9 8D 02 D0		 sta $D002
+  1029 3FDC A9 00		 lda #$00
+  1030 3FDE 8C A0 36		 sty panel_punkt+40*6+0
+  1031
+  1032 				; line=94
+  1033
+  1034 3FE1 20 F3 4C		 jsr wait24cycle
+  1035 3FE4 A9 30		 lda #$30
+  1036 3FE6 8D 02 D0		 sta $D002
+  1037 3FE9 A9 70		 lda #$70
+  1038 3FEB 8D 1E D0		 sta $D01E
+  1039 3FEE 8D 02 D0		 sta $D002
+  1040 3FF1 A9 90		 lda #$90
+  1041 3FF3 8D 02 D0		 sta $D002
+  1042 3FF6 A9 00		 lda #$00
+  1043 3FF8 A9 B0		 lda #$B0
+  1044 3FFA 8D 02 D0		 sta $D002
+  1045 3FFD A9 00		 lda #$00
+  1046 3FFF 8D 1E D0		 sta $D01E
+  1047
+  1048 				; line=95
+  1049
+  1050 4002 20 F3 4C		 jsr wait24cycle
+  1051 4005 A9 30		 lda #$30
+  1052 4007 8D 02 D0		 sta $D002
+  1053 400A A9 70		 lda #$70
+  1054 400C 8D 1E D0		 sta $D01E
+  1055 400F 8D 02 D0		 sta $D002
+  1056 4012 A9 90		 lda #$90
+  1057 4014 8D 02 D0		 sta $D002
+  1058 4017 A9 00		 lda #$00
+  1059 4019 A9 B0		 lda #$B0
+  1060 401B 8D 02 D0		 sta $D002
+  1061 401E A9 00		 lda #$00
+  1062 4020 8D 1E D0		 sta $D01E
+  1063
+  1064 				; line=96
+  1065
+  1066 4023 A9 0A		c27 lda #$0A
+  1067 4025 A2 0A		 ldx #$0A
+  1068 4027 A0 00		 ldy #$00
+  1069 4029 8D 14 D0		 sta colpm2
+  1070 402C 8D 15 D0		 sta colpm3
+  1071 402F 8C 1E D0		 sty $d01e
+  1072 4032 A2 00		 ldx #$00
+  1073 = 4033			punkt_1 equ *-1
+  1074 4034 8D 1E D0		 sta $d01e
+  1075 4037 C5 8A		 cmp byt2
+  1076
+  1077 				; line=97
+  1078
+  1079 4039 20 F3 4C		 jsr wait24cycle
+  1080 403C A9 30		 lda #$30
+  1081 403E 8D 02 D0		 sta $D002
+  1082 4041 A9 70		 lda #$70
+  1083 				; sta $D01E
+  1084 4043 BC 14 8D		 ldy cyfry+20,x
+  1085 4046 8D 02 D0		 sta $D002
+  1086 4049 A9 90		 lda #$90
+  1087 404B 8D 02 D0		 sta $D002
+  1088 404E A9 00		 lda #$00
+  1089 4050 A9 B0		 lda #$B0
+  1090 4052 8D 02 D0		 sta $D002
+  1091 4055 A9 00		 lda #$00
+  1092 4057 8C 01 36		 sty panel_punkt+40*2+1
+  1093
+  1094 				; line=98
+  1095
+  1096 405A 20 F3 4C		 jsr wait24cycle
+  1097 405D A9 30		 lda #$30
+  1098 405F 8D 02 D0		 sta $D002
+  1099 4062 A9 70		 lda #$70
+  1100 				; sta $D01E
+  1101 4064 BC 1E 8D		 ldy cyfry+30,x
+  1102 4067 8D 02 D0		 sta $D002
+  1103 406A A9 90		 lda #$90
+  1104 406C 8D 02 D0		 sta $D002
+  1105 406F A9 00		 lda #$00
+  1106 4071 A9 B0		 lda #$B0
+  1107 4073 8D 02 D0		 sta $D002
+  1108 4076 A9 00		 lda #$00
+  1109 4078 8C 29 36		 sty panel_punkt+40*3+1
+  1110
+  1111 				; line=99
+  1112
+  1113 407B 20 F3 4C		 jsr wait24cycle
+  1114 407E A9 30		 lda #$30
+  1115 4080 8D 02 D0		 sta $D002
+  1116 4083 A9 70		 lda #$70
+  1117 				; sta $D01E
+  1118 4085 BC 28 8D		 ldy cyfry+40,x
+  1119 4088 8D 02 D0		 sta $D002
+  1120 408B A9 90		 lda #$90
+  1121 408D 8D 02 D0		 sta $D002
+  1122 4090 A9 00		 lda #$00
+  1123 4092 A9 B0		 lda #$B0
+  1124 4094 8D 02 D0		 sta $D002
+  1125 4097 A9 00		 lda #$00
+  1126 4099 8C 51 36		 sty panel_punkt+40*4+1
+  1127
+  1128 				; line=100
+  1129
+  1130 409C 20 F3 4C		 jsr wait24cycle
+  1131 409F A9 30		 lda #$30
+  1132 40A1 8D 02 D0		 sta $D002
+  1133 40A4 A9 70		 lda #$70
+  1134 				; sta $D01E
+  1135 40A6 BC 32 8D		 ldy cyfry+50,x
+  1136 40A9 8D 02 D0		 sta $D002
+  1137 40AC A9 90		 lda #$90
+  1138 40AE 8D 02 D0		 sta $D002
+  1139 40B1 A9 00		 lda #$00
+  1140 40B3 A9 B0		 lda #$B0
+  1141 40B5 8D 02 D0		 sta $D002
+  1142 40B8 A9 00		 lda #$00
+  1143 40BA 8C 79 36		 sty panel_punkt+40*5+1
+  1144
+  1145 				; line=101
+  1146
+  1147 40BD 20 F3 4C		 jsr wait24cycle
+  1148 40C0 A9 30		 lda #$30
+  1149 40C2 8D 02 D0		 sta $D002
+  1150 40C5 A9 70		 lda #$70
+  1151 				; sta $D01E
+  1152 40C7 BC 3C 8D		 ldy cyfry+60,x
+  1153 40CA 8D 02 D0		 sta $D002
+  1154 40CD A9 90		 lda #$90
+  1155 40CF 8D 02 D0		 sta $D002
+  1156 40D2 A9 00		 lda #$00
+  1157 40D4 A9 B0		 lda #$B0
+  1158 40D6 8D 02 D0		 sta $D002
+  1159 40D9 A9 00		 lda #$00
+  1160 40DB 8C A1 36		 sty panel_punkt+40*6+1
+  1161
+  1162 				; line=102
+  1163
+  1164 40DE 20 F3 4C		 jsr wait24cycle
+  1165 40E1 A9 30		 lda #$30
+  1166 40E3 8D 02 D0		 sta $D002
+  1167 40E6 A9 70		 lda #$70
+  1168 40E8 8D 1E D0		 sta $D01E
+  1169 40EB 8D 02 D0		 sta $D002
+  1170 40EE A9 90		 lda #$90
+  1171 40F0 8D 02 D0		 sta $D002
+  1172 40F3 A9 00		 lda #$00
+  1173 40F5 A9 B0		 lda #$B0
+  1174 40F7 8D 02 D0		 sta $D002
+  1175 40FA A9 00		 lda #$00
+  1176 40FC 8D 1E D0		 sta $D01E
+  1177
+  1178 				; line=103
+  1179
+  1180 40FF 20 F3 4C		 jsr wait24cycle
+  1181 4102 A9 30		 lda #$30
+  1182 4104 8D 02 D0		 sta $D002
+  1183 4107 A9 70		 lda #$70
+  1184 4109 8D 1E D0		 sta $D01E
+  1185 410C 8D 02 D0		 sta $D002
+  1186 410F A9 90		 lda #$90
+  1187 4111 8D 02 D0		 sta $D002
+  1188 4114 A9 00		 lda #$00
+  1189 4116 A9 B0		 lda #$B0
+  1190 4118 8D 02 D0		 sta $D002
+  1191 411B A9 00		 lda #$00
+  1192 411D 8D 1E D0		 sta $D01E
+  1193
+  1194 				; line=104
+  1195
+  1196 4120 A9 74		c29 lda #$74
+  1197 4122 A2 74		 ldx #$74
+  1198 4124 A0 00		 ldy #$00
+  1199 4126 8D 14 D0		 sta colpm2
+  1200 4129 8D 15 D0		 sta colpm3
+  1201 412C 8C 1E D0		 sty $d01e
+  1202 412F A2 00		 ldx #$00
+  1203 = 4130			punkt_2 equ *-1
+  1204 4131 8D 1E D0		 sta $d01e
+  1205 4134 C5 8A		 cmp byt2
+  1206
+  1207 				; line=105
+  1208
+  1209 4136 20 F3 4C		 jsr wait24cycle
+  1210 4139 A9 30		 lda #$30
+  1211 413B 8D 02 D0		 sta $D002
+  1212 413E A9 70		 lda #$70
+  1213 				; sta $D01E
+  1214 4140 BC 14 8D		 ldy cyfry+20,x
+  1215 4143 8D 02 D0		 sta $D002
+  1216 4146 A9 90		 lda #$90
+  1217 4148 8D 02 D0		 sta $D002
+  1218 414B A9 00		 lda #$00
+  1219 414D A9 B0		 lda #$B0
+  1220 414F 8D 02 D0		 sta $D002
+  1221 4152 A9 00		 lda #$00
+  1222 4154 8C 02 36		 sty panel_punkt+40*2+2
+  1223
+  1224 				; line=106
+  1225
+  1226 4157 20 F3 4C		 jsr wait24cycle
+  1227 415A A9 30		 lda #$30
+  1228 415C 8D 02 D0		 sta $D002
+  1229 415F A9 70		 lda #$70
+  1230 				; sta $D01E
+  1231 4161 BC 1E 8D		 ldy cyfry+30,x
+  1232 4164 8D 02 D0		 sta $D002
+  1233 4167 A9 90		 lda #$90
+  1234 4169 8D 02 D0		 sta $D002
+  1235 416C A9 00		 lda #$00
+  1236 416E A9 B0		 lda #$B0
+  1237 4170 8D 02 D0		 sta $D002
+  1238 4173 A9 00		 lda #$00
+  1239 4175 8C 2A 36		 sty panel_punkt+40*3+2
+  1240
+  1241 				; line=107
+  1242
+  1243 4178 20 F3 4C		 jsr wait24cycle
+  1244 417B A9 30		 lda #$30
+  1245 417D 8D 02 D0		 sta $D002
+  1246 4180 A9 70		 lda #$70
+  1247 				; sta $D01E
+  1248 4182 BC 28 8D		 ldy cyfry+40,x
+  1249 4185 8D 02 D0		 sta $D002
+  1250 4188 A9 90		 lda #$90
+  1251 418A 8D 02 D0		 sta $D002
+  1252 418D A9 00		 lda #$00
+  1253 418F A9 B0		 lda #$B0
+  1254 4191 8D 02 D0		 sta $D002
+  1255 4194 A9 00		 lda #$00
+  1256 4196 8C 52 36		 sty panel_punkt+40*4+2
+  1257
+  1258 				; line=108
+  1259
+  1260 4199 20 F3 4C		 jsr wait24cycle
+  1261 419C A9 30		 lda #$30
+  1262 419E 8D 02 D0		 sta $D002
+  1263 41A1 A9 70		 lda #$70
+  1264 				; sta $D01E
+  1265 41A3 BC 32 8D		 ldy cyfry+50,x
+  1266 41A6 8D 02 D0		 sta $D002
+  1267 41A9 A9 90		 lda #$90
+  1268 41AB 8D 02 D0		 sta $D002
+  1269 41AE A9 00		 lda #$00
+  1270 41B0 A9 B0		 lda #$B0
+  1271 41B2 8D 02 D0		 sta $D002
+  1272 41B5 A9 00		 lda #$00
+  1273 41B7 8C 7A 36		 sty panel_punkt+40*5+2
+  1274
+  1275 				; line=109
+  1276
+  1277 41BA 20 F3 4C		 jsr wait24cycle
+  1278 41BD A9 30		 lda #$30
+  1279 41BF 8D 02 D0		 sta $D002
+  1280 41C2 A9 70		 lda #$70
+  1281 				; sta $D01E
+  1282 41C4 BC 3C 8D		 ldy cyfry+60,x
+  1283 41C7 8D 02 D0		 sta $D002
+  1284 41CA A9 90		 lda #$90
+  1285 41CC 8D 02 D0		 sta $D002
+  1286 41CF A9 00		 lda #$00
+  1287 41D1 A9 B0		 lda #$B0
+  1288 41D3 8D 02 D0		 sta $D002
+  1289 41D6 A9 00		 lda #$00
+  1290 41D8 8C A2 36		 sty panel_punkt+40*6+2
+  1291
+  1292 				; line=110
+  1293
+  1294 41DB 20 F3 4C		 jsr wait24cycle
+  1295 41DE A9 30		 lda #$30
+  1296 41E0 8D 02 D0		 sta $D002
+  1297 41E3 A9 70		 lda #$70
+  1298 41E5 8D 1E D0		 sta $D01E
+  1299 41E8 8D 02 D0		 sta $D002
+  1300 41EB A9 90		 lda #$90
+  1301 41ED 8D 02 D0		 sta $D002
+  1302 41F0 A9 00		 lda #$00
+  1303 41F2 A9 B0		 lda #$B0
+  1304 41F4 8D 02 D0		 sta $D002
+  1305 41F7 A9 00		 lda #$00
+  1306 41F9 8D 1E D0		 sta $D01E
+  1307
+  1308 				; line=111
+  1309
+  1310 41FC 20 F3 4C		 jsr wait24cycle
+  1311 41FF A9 30		 lda #$30
+  1312 4201 8D 02 D0		 sta $D002
+  1313 4204 A9 70		 lda #$70
+  1314 4206 8D 1E D0		 sta $D01E
+  1315 4209 8D 02 D0		 sta $D002
+  1316 420C A9 90		 lda #$90
+  1317 420E 8D 02 D0		 sta $D002
+  1318 4211 A9 00		 lda #$00
+  1319 4213 A9 B0		 lda #$B0
+  1320 4215 8D 02 D0		 sta $D002
+  1321 4218 A9 00		 lda #$00
+  1322 421A 8D 1E D0		 sta $D01E
+  1323
+  1324 				; line=112
+  1325
+  1326 421D A9 0A		c31 lda #$0A
+  1327 421F A2 0A		 ldx #$0A
+  1328 4221 A0 00		 ldy #$00
+  1329 4223 8D 14 D0		 sta colpm2
+  1330 4226 8D 15 D0		 sta colpm3
+  1331 4229 8C 1E D0		 sty $d01e
+  1332 422C A2 00		 ldx #$00
+  1333 = 422D			punkt_3 equ *-1
+  1334 422E 8D 1E D0		 sta $d01e
+  1335 4231 C5 8A		 cmp byt2
+  1336
+  1337 				; line=113
+  1338
+  1339 4233 20 F3 4C		 jsr wait24cycle
+  1340 4236 A9 30		 lda #$30
+  1341 4238 8D 02 D0		 sta $D002
+  1342 423B A9 70		 lda #$70
+  1343 				; sta $D01E
+  1344 423D BC 14 8D		 ldy cyfry+20,x
+  1345 4240 8D 02 D0		 sta $D002
+  1346 4243 A9 90		 lda #$90
+  1347 4245 8D 02 D0		 sta $D002
+  1348 4248 A9 00		 lda #$00
+  1349 424A A9 B0		 lda #$B0
+  1350 424C 8D 02 D0		 sta $D002
+  1351 424F A9 00		 lda #$00
+  1352 4251 8C 03 36		 sty panel_punkt+40*2+3
+  1353
+  1354 				; line=114
+  1355
+  1356 4254 20 F3 4C		 jsr wait24cycle
+  1357 4257 A9 30		 lda #$30
+  1358 4259 8D 02 D0		 sta $D002
+  1359 425C A9 70		 lda #$70
+  1360 				; sta $D01E
+  1361 425E BC 1E 8D		 ldy cyfry+30,x
+  1362 4261 8D 02 D0		 sta $D002
+  1363 4264 A9 90		 lda #$90
+  1364 4266 8D 02 D0		 sta $D002
+  1365 4269 A9 00		 lda #$00
+  1366 426B A9 B0		 lda #$B0
+  1367 426D 8D 02 D0		 sta $D002
+  1368 4270 A9 00		 lda #$00
+  1369 4272 8C 2B 36		 sty panel_punkt+40*3+3
+  1370
+  1371 				; line=115
+  1372
+  1373 4275 20 F3 4C		 jsr wait24cycle
+  1374 4278 A9 30		 lda #$30
+  1375 427A 8D 02 D0		 sta $D002
+  1376 427D A9 70		 lda #$70
+  1377 				; sta $D01E
+  1378 427F BC 28 8D		 ldy cyfry+40,x
+  1379 4282 8D 02 D0		 sta $D002
+  1380 4285 A9 90		 lda #$90
+  1381 4287 8D 02 D0		 sta $D002
+  1382 428A A9 00		 lda #$00
+  1383 428C A9 B0		 lda #$B0
+  1384 428E 8D 02 D0		 sta $D002
+  1385 4291 A9 00		 lda #$00
+  1386 4293 8C 53 36		 sty panel_punkt+40*4+3
+  1387
+  1388 				; line=116
+  1389
+  1390 4296 20 F3 4C		 jsr wait24cycle
+  1391 4299 A9 30		 lda #$30
+  1392 429B 8D 02 D0		 sta $D002
+  1393 429E A9 70		 lda #$70
+  1394 				; sta $D01E
+  1395 42A0 BC 32 8D		 ldy cyfry+50,x
+  1396 42A3 8D 02 D0		 sta $D002
+  1397 42A6 A9 90		 lda #$90
+  1398 42A8 8D 02 D0		 sta $D002
+  1399 42AB A9 00		 lda #$00
+  1400 42AD A9 B0		 lda #$B0
+  1401 42AF 8D 02 D0		 sta $D002
+  1402 42B2 A9 00		 lda #$00
+  1403 42B4 8C 7B 36		 sty panel_punkt+40*5+3
+  1404
+  1405 				; line=117
+  1406
+  1407 42B7 20 F3 4C		 jsr wait24cycle
+  1408 42BA A9 30		 lda #$30
+  1409 42BC 8D 02 D0		 sta $D002
+  1410 42BF A9 70		 lda #$70
+  1411 				; sta $D01E
+  1412 42C1 BC 3C 8D		 ldy cyfry+60,x
+  1413 42C4 8D 02 D0		 sta $D002
+  1414 42C7 A9 90		 lda #$90
+  1415 42C9 8D 02 D0		 sta $D002
+  1416 42CC A9 00		 lda #$00
+  1417 42CE A9 B0		 lda #$B0
+  1418 42D0 8D 02 D0		 sta $D002
+  1419 42D3 A9 00		 lda #$00
+  1420 42D5 8C A3 36		 sty panel_punkt+40*6+3
+  1421
+  1422 				; line=118
+  1423
+  1424 42D8 20 F3 4C		 jsr wait24cycle
+  1425 42DB A9 30		 lda #$30
+  1426 42DD 8D 02 D0		 sta $D002
+  1427 42E0 A9 70		 lda #$70
+  1428 42E2 8D 1E D0		 sta $D01E
+  1429 42E5 8D 02 D0		 sta $D002
+  1430 42E8 A9 90		 lda #$90
+  1431 42EA 8D 02 D0		 sta $D002
+  1432 42ED A9 00		 lda #$00
+  1433 42EF A9 B0		 lda #$B0
+  1434 42F1 8D 02 D0		 sta $D002
+  1435 42F4 A9 00		 lda #$00
+  1436 42F6 8D 1E D0		 sta $D01E
+  1437
+  1438 				; line=119
+  1439
+  1440 42F9 20 F3 4C		 jsr wait24cycle
+  1441 42FC A9 30		 lda #$30
+  1442 42FE 8D 02 D0		 sta $D002
+  1443 4301 A9 70		 lda #$70
+  1444 4303 8D 1E D0		 sta $D01E
+  1445 4306 8D 02 D0		 sta $D002
+  1446 4309 A9 90		 lda #$90
+  1447 430B 8D 02 D0		 sta $D002
+  1448 430E A9 00		 lda #$00
+  1449 4310 A9 B0		 lda #$B0
+  1450 4312 8D 02 D0		 sta $D002
+  1451 4315 A9 00		 lda #$00
+  1452 4317 8D 1E D0		 sta $D01E
+  1453
+  1454 				; line=120
+  1455
+  1456 431A A9 74		c33 lda #$74
+  1457 431C A2 74		 ldx #$74
+  1458 431E A0 00		 ldy #$00
+  1459 4320 8D 14 D0		 sta colpm2
+  1460 4323 8D 15 D0		 sta colpm3
+  1461 4326 8C 1E D0		 sty $d01e
+  1462 4329 A2 00		 ldx #$00
+  1463 = 432A			punkt_4 equ *-1
+  1464 432B 8D 1E D0		 sta $d01e
+  1465 432E C5 8A		 cmp byt2
+  1466
+  1467 				; line=121
+  1468
+  1469 4330 20 F3 4C		 jsr wait24cycle
+  1470 4333 A9 30		 lda #$30
+  1471 4335 8D 02 D0		 sta $D002
+  1472 4338 A9 70		 lda #$70
+  1473 				; sta $D01E
+  1474 433A BC 14 8D		 ldy cyfry+20,x
+  1475 433D 8D 02 D0		 sta $D002
+  1476 4340 A9 90		 lda #$90
+  1477 4342 8D 02 D0		 sta $D002
+  1478 4345 A9 00		 lda #$00
+  1479 4347 A9 B0		 lda #$B0
+  1480 4349 8D 02 D0		 sta $D002
+  1481 434C A9 00		 lda #$00
+  1482 434E 8C 04 36		 sty panel_punkt+40*2+4
+  1483
+  1484 				; line=122
+  1485
+  1486 4351 20 F3 4C		 jsr wait24cycle
+  1487 4354 A9 30		 lda #$30
+  1488 4356 8D 02 D0		 sta $D002
+  1489 4359 A9 70		 lda #$70
+  1490 				; sta $D01E
+  1491 435B BC 1E 8D		 ldy cyfry+30,x
+  1492 435E 8D 02 D0		 sta $D002
+  1493 4361 A9 90		 lda #$90
+  1494 4363 8D 02 D0		 sta $D002
+  1495 4366 A9 00		 lda #$00
+  1496 4368 A9 B0		 lda #$B0
+  1497 436A 8D 02 D0		 sta $D002
+  1498 436D A9 00		 lda #$00
+  1499 436F 8C 2C 36		 sty panel_punkt+40*3+4
+  1500
+  1501 				; line=123
+  1502
+  1503 4372 20 F3 4C		 jsr wait24cycle
+  1504 4375 A9 30		 lda #$30
+  1505 4377 8D 02 D0		 sta $D002
+  1506 437A A9 70		 lda #$70
+  1507 				; sta $D01E
+  1508 437C BC 28 8D		 ldy cyfry+40,x
+  1509 437F 8D 02 D0		 sta $D002
+  1510 4382 A9 90		 lda #$90
+  1511 4384 8D 02 D0		 sta $D002
+  1512 4387 A9 00		 lda #$00
+  1513 4389 A9 B0		 lda #$B0
+  1514 438B 8D 02 D0		 sta $D002
+  1515 438E A9 00		 lda #$00
+  1516 4390 8C 54 36		 sty panel_punkt+40*4+4
+  1517
+  1518 				; line=124
+  1519
+  1520 4393 20 F3 4C		 jsr wait24cycle
+  1521 4396 A9 30		 lda #$30
+  1522 4398 8D 02 D0		 sta $D002
+  1523 439B A9 70		 lda #$70
+  1524 				; sta $D01E
+  1525 439D BC 32 8D		 ldy cyfry+50,x
+  1526 43A0 8D 02 D0		 sta $D002
+  1527 43A3 A9 90		 lda #$90
+  1528 43A5 8D 02 D0		 sta $D002
+  1529 43A8 A9 00		 lda #$00
+  1530 43AA A9 B0		 lda #$B0
+  1531 43AC 8D 02 D0		 sta $D002
+  1532 43AF A9 00		 lda #$00
+  1533 43B1 8C 7C 36		 sty panel_punkt+40*5+4
+  1534
+  1535 				; line=125
+  1536
+  1537 43B4 20 F3 4C		 jsr wait24cycle
+  1538 43B7 A9 30		 lda #$30
+  1539 43B9 8D 02 D0		 sta $D002
+  1540 43BC A9 70		 lda #$70
+  1541 				; sta $D01E
+  1542 43BE BC 3C 8D		 ldy cyfry+60,x
+  1543 43C1 8D 02 D0		 sta $D002
+  1544 43C4 A9 90		 lda #$90
+  1545 43C6 8D 02 D0		 sta $D002
+  1546 43C9 A9 00		 lda #$00
+  1547 43CB A9 B0		 lda #$B0
+  1548 43CD 8D 02 D0		 sta $D002
+  1549 43D0 A9 00		 lda #$00
+  1550 43D2 8C A4 36		 sty panel_punkt+40*6+4
+  1551
+  1552 				; line=126
+  1553
+  1554 43D5 20 F3 4C		 jsr wait24cycle
+  1555 43D8 A9 30		 lda #$30
+  1556 43DA 8D 02 D0		 sta $D002
+  1557 43DD A9 70		 lda #$70
+  1558 43DF 8D 1E D0		 sta $D01E
+  1559 43E2 8D 02 D0		 sta $D002
+  1560 43E5 A9 90		 lda #$90
+  1561 43E7 8D 02 D0		 sta $D002
+  1562 43EA A9 00		 lda #$00
+  1563 43EC A9 B0		 lda #$B0
+  1564 43EE 8D 02 D0		 sta $D002
+  1565 43F1 A9 00		 lda #$00
+  1566 43F3 8D 1E D0		 sta $D01E
+  1567
+  1568 				; line=127
+  1569
+  1570 43F6 20 F3 4C		 jsr wait24cycle
+  1571 43F9 A9 30		 lda #$30
+  1572 43FB 8D 02 D0		 sta $D002
+  1573 43FE A9 70		 lda #$70
+  1574 4400 8D 1E D0		 sta $D01E
+  1575 4403 8D 02 D0		 sta $D002
+  1576 4406 A9 90		 lda #$90
+  1577 4408 8D 02 D0		 sta $D002
+  1578 440B A9 00		 lda #$00
+  1579 440D A9 B0		 lda #$B0
+  1580 440F 8D 02 D0		 sta $D002
+  1581 4412 A9 00		nap_p1x lda #$00
+  1582 4414 8D 1E D0		nap_p1r sta $D01E
+  1583
+  1584 				; line=128
+  1585
+  1586 4417 A9 D8		f1 lda >fnt		// tutaj przywracamy wlasciwy zestaw
+  1587 4419 A2 22		nap_gti2 ldx #$22
+  1588 441B A0 0A		c35 ldy #$0A
+  1589 441D 8D 09 D4		 sta chbase
+  1590 4420 8E 1B D0		 stx gtictl
+  1591 4423 8C 14 D0		 sty colpm2
+  1592 4426 A9 0A		 lda #$0A
+  1593 4428 8C 15 D0		 sty colpm3
+  1594 442B C5 8A		 cmp byt2
+  1595
+  1596 				; line=129
+  1597
+  1598 				; jsr wait24cycle
+  1599
+  1600 442D A9 00		nap_col0 lda #0
+  1601 442F 8D 12 D0		 sta colpm0
+  1602 4432 A9 00		nap_col1 lda #0
+  1603 4434 8D 13 D0		 sta colpm1
+  1604 4437 A9 00		 lda #$00
+  1605 4439 8D 1E D0		 sta $d01e
+  1606 443C A9 00		 lda #$00
+  1607 443E 8D 1E D0		 sta $d01e
+  1608
+  1609 4441 A9 30		 lda #$30
+  1610 4443 8D 02 D0		 sta $D002
+  1611 4446 A9 70		 lda #$70
+  1612 4448 8D 1E D0		 sta $D01E
+  1613 444B 8D 02 D0		 sta $D002
+  1614 444E A9 90		 lda #$90
+  1615 4450 8D 02 D0		 sta $D002
+  1616 4453 A2 00		 ldx #$00
+  1617 = 4454			punkt_5 equ *-1
+  1618 4455 A9 B0		 lda #$B0
+  1619 4457 8D 02 D0		 sta $D002
+  1620 445A A9 00		 lda #$00
+  1621 445C 8D 1E D0		 sta $D01E
+  1622
+  1623 				; line=130
+  1624
+  1625 445F 20 F3 4C		 jsr wait24cycle
+  1626 4462 A9 30		 lda #$30
+  1627 4464 8D 02 D0		 sta $D002
+  1628 4467 A9 70		 lda #$70
+  1629 				; sta $D01E
+  1630 4469 BC 14 8D		 ldy cyfry+20,x
+  1631 446C 8D 02 D0		 sta $D002
+  1632 446F A9 90		 lda #$90
+  1633 4471 8D 02 D0		 sta $D002
+  1634 4474 A9 00		 lda #$00
+  1635 4476 A9 B0		 lda #$B0
+  1636 4478 8D 02 D0		 sta $D002
+  1637 447B A9 00		 lda #$00
+  1638 447D 8C 05 36		 sty panel_punkt+40*2+5
+  1639
+  1640 				; line=131
+  1641
+  1642 4480 20 F3 4C		 jsr wait24cycle
+  1643 4483 A9 30		 lda #$30
+  1644 4485 8D 02 D0		 sta $D002
+  1645 4488 A9 70		 lda #$70
+  1646 				; sta $D01E
+  1647 448A BC 1E 8D		 ldy cyfry+30,x
+  1648 448D 8D 02 D0		 sta $D002
+  1649 4490 A9 90		 lda #$90
+  1650 4492 8D 02 D0		 sta $D002
+  1651 4495 A9 00		 lda #$00
+  1652 4497 A9 B0		 lda #$B0
+  1653 4499 8D 02 D0		 sta $D002
+  1654 449C A9 00		 lda #$00
+  1655 449E 8C 2D 36		 sty panel_punkt+40*3+5
+  1656
+  1657 				; line=132
+  1658
+  1659 44A1 20 F3 4C		 jsr wait24cycle
+  1660 44A4 A9 30		 lda #$30
+  1661 44A6 8D 02 D0		 sta $D002
+  1662 44A9 A9 70		 lda #$70
+  1663 				; sta $D01E
+  1664 44AB BC 28 8D		 ldy cyfry+40,x
+  1665 44AE 8D 02 D0		 sta $D002
+  1666 44B1 A9 90		 lda #$90
+  1667 44B3 8D 02 D0		 sta $D002
+  1668 44B6 A9 00		 lda #$00
+  1669 44B8 A9 B0		 lda #$B0
+  1670 44BA 8D 02 D0		 sta $D002
+  1671 44BD A9 00		 lda #$00
+  1672 44BF 8C 55 36		 sty panel_punkt+40*4+5
+  1673
+  1674 				; line=133
+  1675
+  1676 44C2 20 F3 4C		 jsr wait24cycle
+  1677 44C5 A9 30		 lda #$30
+  1678 44C7 8D 02 D0		 sta $D002
+  1679 44CA A9 70		 lda #$70
+  1680 				; sta $D01E
+  1681 44CC BC 32 8D		 ldy cyfry+50,x
+  1682 44CF 8D 02 D0		 sta $D002
+  1683 44D2 A9 90		 lda #$90
+  1684 44D4 8D 02 D0		 sta $D002
+  1685 44D7 A9 00		 lda #$00
+  1686 44D9 A9 B0		 lda #$B0
+  1687 44DB 8D 02 D0		 sta $D002
+  1688 44DE A9 00		 lda #$00
+  1689 44E0 8C 7D 36		 sty panel_punkt+40*5+5
+  1690
+  1691 				; line=134
+  1692
+  1693 44E3 20 F3 4C		 jsr wait24cycle
+  1694 44E6 A9 30		 lda #$30
+  1695 44E8 8D 02 D0		 sta $D002
+  1696 44EB A9 70		 lda #$70
+  1697 				; sta $D01E
+  1698 44ED BC 3C 8D		 ldy cyfry+60,x
+  1699 44F0 8D 02 D0		 sta $D002
+  1700 44F3 A9 90		 lda #$90
+  1701 44F5 8D 02 D0		 sta $D002
+  1702 44F8 A9 00		 lda #$00
+  1703 44FA A9 B0		 lda #$B0
+  1704 44FC 8D 02 D0		 sta $D002
+  1705 44FF A9 00		 lda #$00
+  1706 4501 8C A5 36		 sty panel_punkt+40*6+5
+  1707
+  1708 				; line=135
+  1709
+  1710 4504 20 F3 4C		 jsr wait24cycle
+  1711 4507 A9 30		 lda #$30
+  1712 4509 8D 02 D0		 sta $D002
+  1713 450C A9 70		 lda #$70
+  1714 450E 8D 1E D0		 sta $D01E
+  1715 4511 8D 02 D0		 sta $D002
+  1716 4514 A9 90		 lda #$90
+  1717 4516 8D 02 D0		 sta $D002
+  1718 4519 A9 00		 lda #$00
+  1719 451B A9 B0		 lda #$B0
+  1720 451D 8D 02 D0		 sta $D002
+  1721 4520 A9 00		 lda #$00
+  1722 4522 8D 1E D0		 sta $D01E
+  1723
+  1724 				; line=136
+  1725
+  1726 4525 A9 74		c37 lda #$74
+  1727 4527 A2 74		 ldx #$74
+  1728 4529 A0 00		 ldy #$00
+  1729 452B 8D 14 D0		 sta colpm2
+  1730 452E 8D 15 D0		 sta colpm3
+  1731 4531 8C 1E D0		 sty $d01e
+  1732 4534 A9 00		 lda #$00
+  1733 4536 8D 1E D0		 sta $d01e
+  1734 4539 C5 8A		 cmp byt2
+  1735
+  1736 				; line=137
+  1737
+  1738 453B 20 F3 4C		 jsr wait24cycle
+  1739 453E A9 30		 lda #$30
+  1740 4540 8D 02 D0		 sta $D002
+  1741 4543 A9 70		 lda #$70
+  1742 4545 8D 1E D0		 sta $D01E
+  1743 4548 8D 02 D0		 sta $D002
+  1744 454B A9 90		 lda #$90
+  1745 454D 8D 02 D0		 sta $D002
+  1746 4550 A9 00		 lda #$00
+  1747 4552 A9 B0		 lda #$B0
+  1748 4554 8D 02 D0		 sta $D002
+  1749 4557 A9 00		 lda #$00
+  1750 4559 8D 1E D0		 sta $D01E
+  1751
+  1752 				; line=138
+  1753
+  1754 455C 20 F3 4C		 jsr wait24cycle
+  1755 455F A9 30		 lda #$30
+  1756 4561 8D 02 D0		 sta $D002
+  1757 4564 A9 70		 lda #$70
+  1758 4566 8D 1E D0		 sta $D01E
+  1759 4569 8D 02 D0		 sta $D002
+  1760 456C A9 90		 lda #$90
+  1761 456E 8D 02 D0		 sta $D002
+  1762 4571 A9 00		 lda #$00
+  1763 4573 A9 B0		 lda #$B0
+  1764 4575 8D 02 D0		 sta $D002
+  1765 4578 A9 00		 lda #$00
+  1766 457A 8D 1E D0		 sta $D01E
+  1767
+  1768 				; line=139
+  1769
+  1770 457D 20 F3 4C		 jsr wait24cycle
+  1771 4580 A9 30		 lda #$30
+  1772 4582 8D 02 D0		 sta $D002
+  1773 4585 A9 70		 lda #$70
+  1774 4587 8D 1E D0		 sta $D01E
+  1775 458A 8D 02 D0		 sta $D002
+  1776 458D A9 90		 lda #$90
+  1777 458F 8D 02 D0		 sta $D002
+  1778 4592 A9 00		 lda #$00
+  1779 4594 A9 B0		 lda #$B0
+  1780 4596 8D 02 D0		 sta $D002
+  1781 4599 A9 00		 lda #$00
+  1782 459B 8D 1E D0		 sta $D01E
+  1783
+  1784 				; line=140
+  1785
+  1786 459E 20 F3 4C		 jsr wait24cycle
+  1787 45A1 A9 30		 lda #$30
+  1788 45A3 8D 02 D0		 sta $D002
+  1789 45A6 A9 70		 lda #$70
+  1790 45A8 8D 1E D0		 sta $D01E
+  1791 45AB 8D 02 D0		 sta $D002
+  1792 45AE A9 90		 lda #$90
+  1793 45B0 8D 02 D0		 sta $D002
+  1794 45B3 A9 00		 lda #$00
+  1795 45B5 A9 B0		 lda #$B0
+  1796 45B7 8D 02 D0		 sta $D002
+  1797 45BA A9 00		 lda #$00
+  1798 45BC 8D 1E D0		 sta $D01E
+  1799
+  1800 				; line=141
+  1801
+  1802 45BF 20 F3 4C		 jsr wait24cycle
+  1803 45C2 A9 30		 lda #$30
+  1804 45C4 8D 02 D0		 sta $D002
+  1805 45C7 A9 70		 lda #$70
+  1806 45C9 8D 1E D0		 sta $D01E
+  1807 45CC 8D 02 D0		 sta $D002
+  1808 45CF A9 90		 lda #$90
+  1809 45D1 8D 02 D0		 sta $D002
+  1810 45D4 A9 00		 lda #$00
+  1811 45D6 A9 B0		 lda #$B0
+  1812 45D8 8D 02 D0		 sta $D002
+  1813 45DB A9 00		 lda #$00
+  1814 45DD 8D 1E D0		 sta $D01E
+  1815
+  1816 				; line=142
+  1817
+  1818 45E0 20 F3 4C		 jsr wait24cycle
+  1819 45E3 A9 30		 lda #$30
+  1820 45E5 8D 02 D0		 sta $D002
+  1821 45E8 A9 70		 lda #$70
+  1822 45EA 8D 1E D0		 sta $D01E
+  1823 45ED 8D 02 D0		 sta $D002
+  1824 45F0 A9 90		 lda #$90
+  1825 45F2 8D 02 D0		 sta $D002
+  1826 45F5 A9 00		 lda #$00
+  1827 45F7 A9 B0		 lda #$B0
+  1828 45F9 8D 02 D0		 sta $D002
+  1829 45FC A9 00		 lda #$00
+  1830 45FE 8D 1E D0		 sta $D01E
+  1831
+  1832 				; line=143
+  1833
+  1834 4601 20 F3 4C		 jsr wait24cycle
+  1835 4604 A9 30		 lda #$30
+  1836 4606 8D 02 D0		 sta $D002
+  1837 4609 A9 70		 lda #$70
+  1838 460B 8D 1E D0		 sta $D01E
+  1839 460E 8D 02 D0		 sta $D002
+  1840 4611 A9 90		 lda #$90
+  1841 4613 8D 02 D0		 sta $D002
+  1842 4616 A9 00		 lda #$00
+  1843 4618 A9 B0		 lda #$B0
+  1844 461A 8D 02 D0		 sta $D002
+  1845 461D A9 00		 lda #$00
+  1846 461F 8D 1E D0		 sta $D01E
+  1847
+  1848 				; line=144
+  1849
+  1850 4622 A9 0A		c39 lda #$0A
+  1851 4624 A2 0A		 ldx #$0A
+  1852 4626 A0 22		 ldy #$22
+  1853 4628 8D 14 D0		 sta colpm2
+  1854 462B 8D 15 D0		 sta colpm3
+  1855 462E 8C 1B D0		 sty gtictl
+  1856 4631 A9 00		 lda #$00
+  1857 4633 8D 1E D0		 sta $d01e
+  1858 4636 C5 8A		 cmp byt2
+  1859
+  1860 				; line=145
+  1861
+  1862 4638 20 F3 4C		 jsr wait24cycle
+  1863 463B A9 30		 lda #$30
+  1864 463D 8D 02 D0		 sta $D002
+  1865 4640 A9 70		 lda #$70
+  1866 4642 8D 1E D0		 sta $D01E
+  1867 4645 8D 02 D0		 sta $D002
+  1868 4648 A9 90		 lda #$90
+  1869 464A 8D 02 D0		 sta $D002
+  1870 464D A9 00		 lda #$00
+  1871 464F A9 B0		 lda #$B0
+  1872 4651 8D 02 D0		 sta $D002
+  1873 4654 A9 00		 lda #$00
+  1874 4656 8D 1E D0		 sta $D01E
+  1875
+  1876 				; line=146
+  1877
+  1878 4659 20 F3 4C		 jsr wait24cycle
+  1879 465C A9 30		 lda #$30
+  1880 465E 8D 02 D0		 sta $D002
+  1881 4661 A9 70		 lda #$70
+  1882 4663 8D 1E D0		 sta $D01E
+  1883 4666 8D 02 D0		 sta $D002
+  1884 4669 A9 90		 lda #$90
+  1885 466B 8D 02 D0		 sta $D002
+  1886 466E A9 00		 lda #$00
+  1887 4670 A9 B0		 lda #$B0
+  1888 4672 8D 02 D0		 sta $D002
+  1889 4675 A9 00		 lda #$00
+  1890 4677 8D 1E D0		 sta $D01E
+  1891
+  1892 				; line=147
+  1893
+  1894 467A 20 F3 4C		 jsr wait24cycle
+  1895 467D A9 30		 lda #$30
+  1896 467F 8D 02 D0		 sta $D002
+  1897 4682 A9 70		 lda #$70
+  1898 4684 8D 1E D0		 sta $D01E
+  1899 4687 8D 02 D0		 sta $D002
+  1900 468A A9 90		 lda #$90
+  1901 468C 8D 02 D0		 sta $D002
+  1902 468F A9 00		 lda #$00
+  1903 4691 A9 B0		 lda #$B0
+  1904 4693 8D 02 D0		 sta $D002
+  1905 4696 A9 00		 lda #$00
+  1906 4698 8D 1E D0		 sta $D01E
+  1907
+  1908 				; line=148
+  1909
+  1910 469B 20 F3 4C		 jsr wait24cycle
+  1911 469E A9 30		 lda #$30
+  1912 46A0 8D 02 D0		 sta $D002
+  1913 46A3 A9 70		 lda #$70
+  1914 46A5 8D 1E D0		 sta $D01E
+  1915 46A8 8D 02 D0		 sta $D002
+  1916 46AB A9 90		 lda #$90
+  1917 46AD 8D 02 D0		 sta $D002
+  1918 46B0 A9 00		 lda #$00
+  1919 46B2 A9 B0		 lda #$B0
+  1920 46B4 8D 02 D0		 sta $D002
+  1921 46B7 A9 00		 lda #$00
+  1922 46B9 8D 1E D0		 sta $D01E
+  1923
+  1924 				; line=149
+  1925
+  1926 46BC 20 F3 4C		 jsr wait24cycle
+  1927 46BF A9 30		 lda #$30
+  1928 46C1 8D 02 D0		 sta $D002
+  1929 46C4 A9 70		 lda #$70
+  1930 46C6 8D 1E D0		 sta $D01E
+  1931 46C9 8D 02 D0		 sta $D002
+  1932 46CC A9 90		 lda #$90
+  1933 46CE 8D 02 D0		 sta $D002
+  1934 46D1 A9 00		 lda #$00
+  1935 46D3 A9 B0		 lda #$B0
+  1936 46D5 8D 02 D0		 sta $D002
+  1937 46D8 A9 00		 lda #$00
+  1938 46DA 8D 1E D0		 sta $D01E
+  1939
+  1940 				; line=150
+  1941
+  1942 46DD 20 F3 4C		 jsr wait24cycle
+  1943 46E0 A9 30		 lda #$30
+  1944 46E2 8D 02 D0		 sta $D002
+  1945 46E5 A9 70		 lda #$70
+  1946 46E7 8D 1E D0		 sta $D01E
+  1947 46EA 8D 02 D0		 sta $D002
+  1948 46ED A9 90		 lda #$90
+  1949 46EF 8D 02 D0		 sta $D002
+  1950 46F2 A9 00		 lda #$00
+  1951 46F4 A9 B0		 lda #$B0
+  1952 46F6 8D 02 D0		 sta $D002
+  1953 46F9 A9 00		 lda #$00
+  1954 46FB 8D 1E D0		 sta $D01E
+  1955
+  1956 				; line=151
+  1957
+  1958 46FE 20 F3 4C		 jsr wait24cycle
+  1959 4701 A9 30		 lda #$30
+  1960 4703 8D 02 D0		 sta $D002
+  1961 4706 A9 70		 lda #$70
+  1962 4708 8D 1E D0		 sta $D01E
+  1963 470B 8D 02 D0		 sta $D002
+  1964 470E A9 90		 lda #$90
+  1965 4710 8D 02 D0		 sta $D002
+  1966 4713 A9 00		 lda #$00
+  1967 4715 A9 B0		 lda #$B0
+  1968 4717 8D 02 D0		 sta $D002
+  1969 471A A9 00		 lda #$00
+  1970 471C 8D 1E D0		 sta $D01E
+  1971
+  1972 				; line=152
+  1973
+  1974 471F A9 74		c41 lda #$74
+  1975 4721 A2 74		 ldx #$74
+  1976 4723 A0 00		 ldy #$00
+  1977 4725 8D 14 D0		 sta colpm2
+  1978 4728 8D 15 D0		 sta colpm3
+  1979 472B 8C 1E D0		 sty $d01e
+  1980 472E A9 00		 lda #$00
+  1981 4730 8D 1E D0		 sta $d01e
+  1982 4733 C5 8A		 cmp byt2
+  1983
+  1984 				; line=153
+  1985
+  1986 4735 20 F3 4C		 jsr wait24cycle
+  1987 4738 A9 30		 lda #$30
+  1988 473A 8D 02 D0		 sta $D002
+  1989 473D A9 70		 lda #$70
+  1990 473F 8D 1E D0		 sta $D01E
+  1991 4742 8D 02 D0		 sta $D002
+  1992 4745 A9 90		 lda #$90
+  1993 4747 8D 02 D0		 sta $D002
+  1994 474A A9 00		 lda #$00
+  1995 474C A9 B0		 lda #$B0
+  1996 474E 8D 02 D0		 sta $D002
+  1997 4751 A9 00		 lda #$00
+  1998 4753 8D 1E D0		 sta $D01E
+  1999
+  2000 				; line=154
+  2001
+  2002 4756 20 F3 4C		 jsr wait24cycle
+  2003 4759 A9 30		 lda #$30
+  2004 475B 8D 02 D0		 sta $D002
+  2005 475E A9 70		 lda #$70
+  2006 4760 8D 1E D0		 sta $D01E
+  2007 4763 8D 02 D0		 sta $D002
+  2008 4766 A9 90		 lda #$90
+  2009 4768 8D 02 D0		 sta $D002
+  2010 476B A9 00		 lda #$00
+  2011 476D A9 B0		 lda #$B0
+  2012 476F 8D 02 D0		 sta $D002
+  2013 4772 A9 00		 lda #$00
+  2014 4774 8D 1E D0		 sta $D01E
+  2015
+  2016 				; line=155
+  2017
+  2018 4777 20 F3 4C		 jsr wait24cycle
+  2019 477A A9 30		 lda #$30
+  2020 477C 8D 02 D0		 sta $D002
+  2021 477F A9 70		 lda #$70
+  2022 4781 8D 1E D0		 sta $D01E
+  2023 4784 8D 02 D0		 sta $D002
+  2024 4787 A9 90		 lda #$90
+  2025 4789 8D 02 D0		 sta $D002
+  2026 478C A9 00		 lda #$00
+  2027 478E A9 B0		 lda #$B0
+  2028 4790 8D 02 D0		 sta $D002
+  2029 4793 A9 00		 lda #$00
+  2030 4795 8D 1E D0		 sta $D01E
+  2031
+  2032 				; line=156
+  2033
+  2034 4798 20 F3 4C		 jsr wait24cycle
+  2035 479B A9 30		 lda #$30
+  2036 479D 8D 02 D0		 sta $D002
+  2037 47A0 A9 70		 lda #$70
+  2038 47A2 8D 1E D0		 sta $D01E
+  2039 47A5 8D 02 D0		 sta $D002
+  2040 47A8 A9 90		 lda #$90
+  2041 47AA 8D 02 D0		 sta $D002
+  2042 47AD A9 00		 lda #$00
+  2043 47AF A9 B0		 lda #$B0
+  2044 47B1 8D 02 D0		 sta $D002
+  2045 47B4 A9 00		 lda #$00
+  2046 47B6 8D 1E D0		 sta $D01E
+  2047
+  2048 				; line=157
+  2049
+  2050 47B9 20 F3 4C		 jsr wait24cycle
+  2051 47BC A9 30		 lda #$30
+  2052 47BE 8D 02 D0		 sta $D002
+  2053 47C1 A9 70		 lda #$70
+  2054 47C3 8D 1E D0		 sta $D01E
+  2055 47C6 8D 02 D0		 sta $D002
+  2056 47C9 A9 90		 lda #$90
+  2057 47CB 8D 02 D0		 sta $D002
+  2058 47CE A9 00		 lda #$00
+  2059 47D0 A9 B0		 lda #$B0
+  2060 47D2 8D 02 D0		 sta $D002
+  2061 47D5 A9 00		 lda #$00
+  2062 47D7 8D 1E D0		 sta $D01E
+  2063
+  2064 				; line=158
+  2065
+  2066 47DA 20 F3 4C		 jsr wait24cycle
+  2067 47DD A9 30		 lda #$30
+  2068 47DF 8D 02 D0		 sta $D002
+  2069 47E2 A9 70		 lda #$70
+  2070 47E4 8D 1E D0		 sta $D01E
+  2071 47E7 8D 02 D0		 sta $D002
+  2072 47EA A9 90		 lda #$90
+  2073 47EC 8D 02 D0		 sta $D002
+  2074 47EF A9 00		 lda #$00
+  2075 47F1 A9 B0		 lda #$B0
+  2076 47F3 8D 02 D0		 sta $D002
+  2077 47F6 A9 00		 lda #$00
+  2078 47F8 8D 1E D0		 sta $D01E
+  2079
+  2080 				; line=159
+  2081
+  2082 47FB 20 F3 4C		 jsr wait24cycle
+  2083 47FE A9 30		 lda #$30
+  2084 4800 8D 02 D0		 sta $D002
+  2085 4803 A9 70		 lda #$70
+  2086 4805 8D 1E D0		 sta $D01E
+  2087 4808 8D 02 D0		 sta $D002
+  2088 480B A9 90		 lda #$90
+  2089 480D 8D 02 D0		 sta $D002
+  2090 4810 A9 00		 lda #$00
+  2091 4812 A9 B0		 lda #$B0
+  2092 4814 8D 02 D0		 sta $D002
+  2093 4817 A9 00		 lda #$00
+  2094 4819 8D 1E D0		 sta $D01E
+  2095
+  2096 				; line=160
+  2097
+  2098 481C A9 0A		c43 lda #$0A
+  2099 481E A2 0A		 ldx #$0A
+  2100 4820 A0 00		 ldy #$00
+  2101 4822 8D 14 D0		 sta colpm2
+  2102 4825 8D 15 D0		 sta colpm3
+  2103 4828 8C 1E D0		 sty $d01e
+  2104 482B A9 00		 lda #$00
+  2105 482D 8D 1E D0		 sta $d01e
+  2106 4830 C5 8A		 cmp byt2
+  2107
+  2108 				; line=161
+  2109
+  2110 4832 20 F3 4C		 jsr wait24cycle
+  2111 4835 A9 30		 lda #$30
+  2112 4837 8D 02 D0		 sta $D002
+  2113 483A A9 70		 lda #$70
+  2114 483C 8D 1E D0		 sta $D01E
+  2115 483F 8D 02 D0		 sta $D002
+  2116 4842 A9 90		 lda #$90
+  2117 4844 8D 02 D0		 sta $D002
+  2118 4847 A9 00		 lda #$00
+  2119 4849 A9 B0		 lda #$B0
+  2120 484B 8D 02 D0		 sta $D002
+  2121 484E A9 00		 lda #$00
+  2122 4850 8D 1E D0		 sta $D01E
+  2123
+  2124 				; line=162
+  2125
+  2126 4853 20 F3 4C		 jsr wait24cycle
+  2127 4856 A9 30		 lda #$30
+  2128 4858 8D 02 D0		 sta $D002
+  2129 485B A9 70		 lda #$70
+  2130 485D 8D 1E D0		 sta $D01E
+  2131 4860 8D 02 D0		 sta $D002
+  2132 4863 A9 90		 lda #$90
+  2133 4865 8D 02 D0		 sta $D002
+  2134 4868 A9 00		 lda #$00
+  2135 486A A9 B0		 lda #$B0
+  2136 486C 8D 02 D0		 sta $D002
+  2137 486F A9 00		 lda #$00
+  2138 4871 8D 1E D0		 sta $D01E
+  2139
+  2140 				; line=163
+  2141
+  2142 4874 20 F3 4C		 jsr wait24cycle
+  2143 4877 A9 30		 lda #$30
+  2144 4879 8D 02 D0		 sta $D002
+  2145 487C A9 70		 lda #$70
+  2146 487E 8D 1E D0		 sta $D01E
+  2147 4881 8D 02 D0		 sta $D002
+  2148 4884 A9 90		 lda #$90
+  2149 4886 8D 02 D0		 sta $D002
+  2150 4889 A9 00		 lda #$00
+  2151 488B A9 B0		 lda #$B0
+  2152 488D 8D 02 D0		 sta $D002
+  2153 4890 A9 00		 lda #$00
+  2154 4892 8D 1E D0		 sta $D01E
+  2155
+  2156 				; line=164
+  2157
+  2158 4895 20 F3 4C		 jsr wait24cycle
+  2159 4898 A9 30		 lda #$30
+  2160 489A 8D 02 D0		 sta $D002
+  2161 489D A9 70		 lda #$70
+  2162 489F 8D 1E D0		 sta $D01E
+  2163 48A2 8D 02 D0		 sta $D002
+  2164 48A5 A9 90		 lda #$90
+  2165 48A7 8D 02 D0		 sta $D002
+  2166 48AA A9 00		 lda #$00
+  2167 48AC A9 B0		 lda #$B0
+  2168 48AE 8D 02 D0		 sta $D002
+  2169 48B1 A9 00		 lda #$00
+  2170 48B3 8D 1E D0		 sta $D01E
+  2171
+  2172 				; line=165
+  2173
+  2174 48B6 20 F3 4C		 jsr wait24cycle
+  2175 48B9 A9 30		 lda #$30
+  2176 48BB 8D 02 D0		 sta $D002
+  2177 48BE A9 70		 lda #$70
+  2178 48C0 8D 1E D0		 sta $D01E
+  2179 48C3 8D 02 D0		 sta $D002
+  2180 48C6 A9 90		 lda #$90
+  2181 48C8 8D 02 D0		 sta $D002
+  2182 48CB A9 00		 lda #$00
+  2183 48CD A9 B0		 lda #$B0
+  2184 48CF 8D 02 D0		 sta $D002
+  2185 48D2 A9 00		 lda #$00
+  2186 48D4 8D 1E D0		 sta $D01E
+  2187
+  2188 				; line=166
+  2189
+  2190 48D7 20 F3 4C		 jsr wait24cycle
+  2191 48DA A9 30		 lda #$30
+  2192 48DC 8D 02 D0		 sta $D002
+  2193 48DF A9 70		 lda #$70
+  2194 48E1 8D 1E D0		 sta $D01E
+  2195 48E4 8D 02 D0		 sta $D002
+  2196 48E7 A9 90		 lda #$90
+  2197 48E9 8D 02 D0		 sta $D002
+  2198 48EC A9 00		 lda #$00
+  2199 48EE A9 B0		 lda #$B0
+  2200 48F0 8D 02 D0		 sta $D002
+  2201 48F3 A9 00		 lda #$00
+  2202 48F5 8D 1E D0		 sta $D01E
+  2203
+  2204 				; line=167
+  2205
+  2206 48F8 20 F3 4C		 jsr wait24cycle
+  2207 48FB A9 30		 lda #$30
+  2208 48FD 8D 02 D0		 sta $D002
+  2209 4900 A9 70		 lda #$70
+  2210 4902 8D 1E D0		 sta $D01E
+  2211 4905 8D 02 D0		 sta $D002
+  2212 4908 A9 90		 lda #$90
+  2213 490A 8D 02 D0		 sta $D002
+  2214 490D A9 00		 lda #$00
+  2215 490F A9 B0		 lda #$B0
+  2216 4911 8D 02 D0		 sta $D002
+  2217 4914 A9 00		 lda #$00
+  2218 4916 8D 1E D0		 sta $D01E
+  2219
+  2220 				; line=168
+  2221
+  2222 4919 A9 74		c45 lda #$74
+  2223 491B A2 74		 ldx #$74
+  2224 491D A0 00		 ldy #$00
+  2225 491F 8D 14 D0		 sta colpm2
+  2226 4922 8D 15 D0		 sta colpm3
+  2227 4925 8C 1E D0		 sty $d01e
+  2228 4928 A9 00		 lda #$00
+  2229 492A 8D 1E D0		 sta $d01e
+  2230 492D C5 8A		 cmp byt2
+  2231
+  2232 				; line=169
+  2233
+  2234 492F 20 F3 4C		 jsr wait24cycle
+  2235 4932 A9 30		 lda #$30
+  2236 4934 8D 02 D0		 sta $D002
+  2237 4937 A9 70		 lda #$70
+  2238 4939 8D 1E D0		 sta $D01E
+  2239 493C 8D 02 D0		 sta $D002
+  2240 493F A9 90		 lda #$90
+  2241 4941 8D 02 D0		 sta $D002
+  2242 4944 A9 00		 lda #$00
+  2243 4946 A9 B0		 lda #$B0
+  2244 4948 8D 02 D0		 sta $D002
+  2245 494B A9 00		 lda #$00
+  2246 494D 8D 1E D0		 sta $D01E
+  2247
+  2248 				; line=170
+  2249
+  2250 4950 20 F3 4C		 jsr wait24cycle
+  2251 4953 A9 30		 lda #$30
+  2252 4955 8D 02 D0		 sta $D002
+  2253 4958 A9 70		 lda #$70
+  2254 495A 8D 1E D0		 sta $D01E
+  2255 495D 8D 02 D0		 sta $D002
+  2256 4960 A9 90		 lda #$90
+  2257 4962 8D 02 D0		 sta $D002
+  2258 4965 A9 00		 lda #$00
+  2259 4967 A9 B0		 lda #$B0
+  2260 4969 8D 02 D0		 sta $D002
+  2261 496C A9 00		 lda #$00
+  2262 496E 8D 1E D0		 sta $D01E
+  2263
+  2264 				; line=171
+  2265
+  2266 4971 20 F3 4C		 jsr wait24cycle
+  2267 4974 A9 30		 lda #$30
+  2268 4976 8D 02 D0		 sta $D002
+  2269 4979 A9 70		 lda #$70
+  2270 497B 8D 1E D0		 sta $D01E
+  2271 497E 8D 02 D0		 sta $D002
+  2272 4981 A9 90		 lda #$90
+  2273 4983 8D 02 D0		 sta $D002
+  2274 4986 A9 00		 lda #$00
+  2275 4988 A9 B0		 lda #$B0
+  2276 498A 8D 02 D0		 sta $D002
+  2277 498D A9 00		 lda #$00
+  2278 498F 8D 1E D0		 sta $D01E
+  2279
+  2280 				; line=172
+  2281
+  2282 4992 20 F3 4C		 jsr wait24cycle
+  2283 4995 A9 30		 lda #$30
+  2284 4997 8D 02 D0		 sta $D002
+  2285 499A A9 70		 lda #$70
+  2286 499C 8D 1E D0		 sta $D01E
+  2287 499F 8D 02 D0		 sta $D002
+  2288 49A2 A9 90		 lda #$90
+  2289 49A4 8D 02 D0		 sta $D002
+  2290 49A7 A9 00		 lda #$00
+  2291 49A9 A9 B0		 lda #$B0
+  2292 49AB 8D 02 D0		 sta $D002
+  2293 49AE A9 00		 lda #$00
+  2294 49B0 8D 1E D0		 sta $D01E
+  2295
+  2296 				; line=173
+  2297
+  2298 49B3 20 F3 4C		 jsr wait24cycle
+  2299 49B6 A9 30		 lda #$30
+  2300 49B8 8D 02 D0		 sta $D002
+  2301 49BB A9 70		 lda #$70
+  2302 49BD 8D 1E D0		 sta $D01E
+  2303 49C0 8D 02 D0		 sta $D002
+  2304 49C3 A9 90		 lda #$90
+  2305 49C5 8D 02 D0		 sta $D002
+  2306 49C8 A9 00		 lda #$00
+  2307 49CA A9 B0		 lda #$B0
+  2308 49CC 8D 02 D0		 sta $D002
+  2309 49CF A9 00		 lda #$00
+  2310 49D1 8D 1E D0		 sta $D01E
+  2311
+  2312 				; line=174
+  2313
+  2314 49D4 20 F3 4C		 jsr wait24cycle
+  2315 49D7 A9 30		 lda #$30
+  2316 49D9 8D 02 D0		 sta $D002
+  2317 49DC A9 70		 lda #$70
+  2318 49DE 8D 1E D0		 sta $D01E
+  2319 49E1 8D 02 D0		 sta $D002
+  2320 49E4 A9 90		 lda #$90
+  2321 49E6 8D 02 D0		 sta $D002
+  2322 49E9 A9 00		 lda #$00
+  2323 49EB A9 B0		 lda #$B0
+  2324 49ED 8D 02 D0		 sta $D002
+  2325 49F0 A9 00		 lda #$00
+  2326 49F2 8D 1E D0		 sta $D01E
+  2327
+  2328 				; line=175
+  2329
+  2330 49F5 20 F3 4C		 jsr wait24cycle
+  2331 49F8 A9 30		 lda #$30
+  2332 49FA 8D 02 D0		 sta $D002
+  2333 49FD A9 70		 lda #$70
+  2334 49FF 8D 1E D0		 sta $D01E
+  2335 4A02 8D 02 D0		 sta $D002
+  2336 4A05 A9 90		 lda #$90
+  2337 4A07 8D 02 D0		 sta $D002
+  2338 4A0A A9 00		 lda #$00
+  2339 4A0C A9 B0		 lda #$B0
+  2340 4A0E 8D 02 D0		 sta $D002
+  2341 4A11 A9 00		 lda #$00
+  2342 4A13 8D 1E D0		 sta $D01E
+  2343
+  2344 				; line=176
+  2345
+  2346 4A16 A9 0A		_c1 lda #$0a
+  2347 4A18 8D 17 D0		 sta color1
+  2348
+  2349 4A1B E6 8C		 inc gate	; od tej linii synchronizuje sie ROBAL
+  2350
+  2351 4A1D			 dli_quit dli2
+Macro: DLI.DLI_QUIT [Source: dli.asm]
+     5 4A1D A9 2A 8D 1B 57 A9 +    mwa #DLI2 vdli+1
+     8 4A27 4C CB 57		  jmp nmiQ
+    10 = 4A2A			  .def ?old_dli
+Source: dli.asm
+  2352
+  2353
+  2354 				*---
+  2355
+  2356
+  2357 4A2A			dli2
+  2358 4A2A A9 74		_c2 lda #$74
+  2359 4A2C 8D 0A D4		 sta $d40a
+  2360 4A2F 8D 17 D0		 sta color1
+  2361
+  2362 4A32			 dli_quit dli3
+Macro: DLI.DLI_QUIT [Source: dli.asm]
+     3 4A32 A9 3A 8D 1B 57	   mva <DLI3 vdli+1
+     8 4A37 4C CB 57		  jmp nmiQ
+    10 = 4A3A			  .def ?old_dli
+Source: dli.asm
+  2363
+  2364
+  2365 				*--- PANEL
+  2366
+  2367 4A3A			dli3
+  2368
+  2369 4A3A A9 14		p0 lda #$14
+  2370 4A3C 8D 0A D4		 STA $D40A
+  2371
+  2372 4A3F 8D 16 D0		 sta color0
+  2373 4A42 8D 13 D0		 sta colpm1
+  2374 4A45 8D 15 D0		 sta colpm3
+  2375 4A48 A9 78		p1 lda #$78
+  2376 4A4A 8D 17 D0		 sta color1
+  2377 4A4D 8D 12 D0		 sta colpm0
+  2378 4A50 A9 0C		_c10 lda #$0C
+  2379 4A52 8D 18 D0		 sta color2
+  2380 4A55 A9 3C		_c11 lda #$3C
+  2381 4A57 8D 19 D0		 sta color3
+  2382
+  2383 4A5A A9 01		 lda #$1
+  2384 4A5C 8D 1B D0		 sta gtictl
+  2385
+  2386 4A5F A9 00		 lda #$00
+  2387 4A61 8D 08 D0		 sta sizep0
+  2388 4A64 8D 09 D0		 sta sizep1
+  2389 4A67 8D 0A D0		 sta sizep2
+  2390 4A6A 8D 0B D0		 sta sizep3
+  2391 4A6D 8D 14 D0		 sta colpm2
+  2392
+  2393 4A70 A9 30		 lda #48
+  2394 4A72 8D 02 D0		 sta hposp2
+  2395 4A75 8D 03 D0		 sta hposp3
+  2396
+  2397 4A78			 dli_quit dli_panel
+Macro: DLI.DLI_QUIT [Source: dli.asm]
+     3 4A78 A9 80 8D 1B 57	   mva <DLI_PANEL vdli+1
+     8 4A7D 4C CB 57		  jmp nmiQ
+    10 = 4A80			  .def ?old_dli
+Source: dli.asm
+  2398
+  2399
+  2400 				*---
+  2401
+  2402 				; line=192
+  2403
+  2404 4A80			dli_panel
+  2405
+  2406 4A80 8D 0A D4		 sta $d40a
+  2407
+  2408 4A83 E6 8A		 inc byt2		; tutaj bitmapa z panelem
+  2409 4A85 A9 00		 lda #$00
+  2410 4A87 8D 1E D0		 sta $d01e
+  2411 4A8A A9 00		 lda #$00
+  2412 4A8C 8D 1E D0		 sta $d01e
+  2413 4A8F A9 00		 lda #$00
+  2414 4A91 C5 8A		 cmp byt2
+  2415 4A93 8D 1A D0		 sta colbak
+  2416 4A96 C5 8A		 cmp byt2
+  2417 4A98 A9 00		 lda #$00
+  2418 4A9A 8D 1E D0		 sta $d01e
+  2419 4A9D A9 00		 lda #$00
+  2420 4A9F 8D 1E D0		 sta $d01e
+  2421 4AA2 A9 B4		_c3 lda #$b4
+  2422 4AA4 E6 8A		 inc byt2
+  2423 4AA6 8D 1E D0		 sta $d01e
+  2424
+  2425 				; line=23
+  2426
+  2427 4AA9 8D 1A D0		 sta colbak
+  2428 4AAC A9 00		 lda #$00
+  2429 4AAE A9 00		 lda #$00
+  2430 4AB0 8D 1E D0		 sta $d01e
+  2431 4AB3 A9 00		 lda #$00
+  2432 4AB5 8D 1E D0		 sta $d01e
+  2433 4AB8 A9 00		 lda #$00
+  2434 4ABA 8D 1E D0		 sta $d01e
+  2435 4ABD A9 00		 lda #$00
+  2436 4ABF C5 8A		 cmp byt2
+  2437 4AC1 8D 1A D0		 sta colbak
+  2438 4AC4 C5 8A		 cmp byt2
+  2439 4AC6 A2 0E		 ldx #$0e
+  2440 4AC8 8D 1E D0		 sta $d01e
+  2441 4ACB A9 78		p2 lda #$78
+  2442 4ACD 8D 14 D0		 sta colpm2
+  2443 4AD0 A9 B4		_c4 lda #$b4
+  2444 4AD2 C5 8A		 cmp byt2
+  2445 4AD4 8E 1E D0		 stx $d01e
+  2446
+  2447 				; line=24
+  2448
+  2449 4AD7 C5 8A		 cmp byt2		; zaczynamy mnozyc duchy
+  2450 4AD9 8D 1A D0		 sta colbak
+  2451 4ADC C5 8A		 cmp byt2
+  2452 4ADE A9 00		 lda #$00
+  2453 4AE0 8D 17 D0		 sta color1
+  2454 4AE3 EA			 nop
+  2455 4AE4 A9 40		 lda #$40
+  2456 4AE6 8D 01 D0		 sta $D001
+  2457 4AE9 8D 00 D0		 sta $D000
+  2458 4AEC A9 64		 lda #$64
+  2459 4AEE 8D 01 D0		 sta $D001
+  2460 4AF1 8D 00 D0		 sta $D000
+  2461 4AF4 A9 98		 lda #$64+52
+  2462 4AF6 8D 01 D0		 sta $D001
+  2463 4AF9 8D 00 D0		 sta $D000
+  2464 4AFC A5 8B		 lda bajt
+  2465 4AFE 8D 01 D0		 sta $D001
+  2466 4B01 8D 00 D0		 sta $D000
+  2467 				; inc byt2
+  2468
+  2469
+  2470 				.rept 7 \ linia \ .endr
+  2470 				.REPT 7 
+  2470 				 LINIA 
+  2470 				 .ENDR
+  2470 				 .ENDR
+Source: REPT
+  2471 4B04			 LINIA 
+     1 4B04 A9 00		 lda #$00
+     2 4B06 A2 00		 ldx #$00
+     3 4B08 A0 00		 ldy #$00
+     4 4B0A 8D 17 D0		 sta color1
+     5 4B0D 8E 1E D0		 stx $d01e
+     6 4B10 8C 1E D0		 sty $d01e
+     7 4B13 A9 40		 lda #$40
+     8 4B15 8D 01 D0		 sta $D001
+     9 4B18 8D 00 D0		 sta $D000
+    10 4B1B A9 64		 lda #$64
+    11 4B1D 8D 01 D0		 sta $D001
+    12 4B20 8D 00 D0		 sta $D000
+    13 4B23 A9 98		 lda #$64+52
+    14 4B25 8D 01 D0		 sta $D001
+    15 4B28 8D 00 D0		 sta $D000
+    16 4B2B A5 8B		 lda bajt
+    17 4B2D 8D 01 D0		 sta $D001
+    18 4B30 8D 00 D0		 sta $D000
+  2471 4B33			 LINIA 
+     1 4B33 A9 00		 lda #$00
+     2 4B35 A2 00		 ldx #$00
+     3 4B37 A0 00		 ldy #$00
+     4 4B39 8D 17 D0		 sta color1
+     5 4B3C 8E 1E D0		 stx $d01e
+     6 4B3F 8C 1E D0		 sty $d01e
+     7 4B42 A9 40		 lda #$40
+     8 4B44 8D 01 D0		 sta $D001
+     9 4B47 8D 00 D0		 sta $D000
+    10 4B4A A9 64		 lda #$64
+    11 4B4C 8D 01 D0		 sta $D001
+    12 4B4F 8D 00 D0		 sta $D000
+    13 4B52 A9 98		 lda #$64+52
+    14 4B54 8D 01 D0		 sta $D001
+    15 4B57 8D 00 D0		 sta $D000
+    16 4B5A A5 8B		 lda bajt
+    17 4B5C 8D 01 D0		 sta $D001
+    18 4B5F 8D 00 D0		 sta $D000
+  2471 4B62			 LINIA 
+     1 4B62 A9 00		 lda #$00
+     2 4B64 A2 00		 ldx #$00
+     3 4B66 A0 00		 ldy #$00
+     4 4B68 8D 17 D0		 sta color1
+     5 4B6B 8E 1E D0		 stx $d01e
+     6 4B6E 8C 1E D0		 sty $d01e
+     7 4B71 A9 40		 lda #$40
+     8 4B73 8D 01 D0		 sta $D001
+     9 4B76 8D 00 D0		 sta $D000
+    10 4B79 A9 64		 lda #$64
+    11 4B7B 8D 01 D0		 sta $D001
+    12 4B7E 8D 00 D0		 sta $D000
+    13 4B81 A9 98		 lda #$64+52
+    14 4B83 8D 01 D0		 sta $D001
+    15 4B86 8D 00 D0		 sta $D000
+    16 4B89 A5 8B		 lda bajt
+    17 4B8B 8D 01 D0		 sta $D001
+    18 4B8E 8D 00 D0		 sta $D000
+  2471 4B91			 LINIA 
+     1 4B91 A9 00		 lda #$00
+     2 4B93 A2 00		 ldx #$00
+     3 4B95 A0 00		 ldy #$00
+     4 4B97 8D 17 D0		 sta color1
+     5 4B9A 8E 1E D0		 stx $d01e
+     6 4B9D 8C 1E D0		 sty $d01e
+     7 4BA0 A9 40		 lda #$40
+     8 4BA2 8D 01 D0		 sta $D001
+     9 4BA5 8D 00 D0		 sta $D000
+    10 4BA8 A9 64		 lda #$64
+    11 4BAA 8D 01 D0		 sta $D001
+    12 4BAD 8D 00 D0		 sta $D000
+    13 4BB0 A9 98		 lda #$64+52
+    14 4BB2 8D 01 D0		 sta $D001
+    15 4BB5 8D 00 D0		 sta $D000
+    16 4BB8 A5 8B		 lda bajt
+    17 4BBA 8D 01 D0		 sta $D001
+    18 4BBD 8D 00 D0		 sta $D000
+  2471 4BC0			 LINIA 
+     1 4BC0 A9 00		 lda #$00
+     2 4BC2 A2 00		 ldx #$00
+     3 4BC4 A0 00		 ldy #$00
+     4 4BC6 8D 17 D0		 sta color1
+     5 4BC9 8E 1E D0		 stx $d01e
+     6 4BCC 8C 1E D0		 sty $d01e
+     7 4BCF A9 40		 lda #$40
+     8 4BD1 8D 01 D0		 sta $D001
+     9 4BD4 8D 00 D0		 sta $D000
+    10 4BD7 A9 64		 lda #$64
+    11 4BD9 8D 01 D0		 sta $D001
+    12 4BDC 8D 00 D0		 sta $D000
+    13 4BDF A9 98		 lda #$64+52
+    14 4BE1 8D 01 D0		 sta $D001
+    15 4BE4 8D 00 D0		 sta $D000
+    16 4BE7 A5 8B		 lda bajt
+    17 4BE9 8D 01 D0		 sta $D001
+    18 4BEC 8D 00 D0		 sta $D000
+  2471 4BEF			 LINIA 
+     1 4BEF A9 00		 lda #$00
+     2 4BF1 A2 00		 ldx #$00
+     3 4BF3 A0 00		 ldy #$00
+     4 4BF5 8D 17 D0		 sta color1
+     5 4BF8 8E 1E D0		 stx $d01e
+     6 4BFB 8C 1E D0		 sty $d01e
+     7 4BFE A9 40		 lda #$40
+     8 4C00 8D 01 D0		 sta $D001
+     9 4C03 8D 00 D0		 sta $D000
+    10 4C06 A9 64		 lda #$64
+    11 4C08 8D 01 D0		 sta $D001
+    12 4C0B 8D 00 D0		 sta $D000
+    13 4C0E A9 98		 lda #$64+52
+    14 4C10 8D 01 D0		 sta $D001
+    15 4C13 8D 00 D0		 sta $D000
+    16 4C16 A5 8B		 lda bajt
+    17 4C18 8D 01 D0		 sta $D001
+    18 4C1B 8D 00 D0		 sta $D000
+  2471 4C1E			 LINIA 
+     1 4C1E A9 00		 lda #$00
+     2 4C20 A2 00		 ldx #$00
+     3 4C22 A0 00		 ldy #$00
+     4 4C24 8D 17 D0		 sta color1
+     5 4C27 8E 1E D0		 stx $d01e
+     6 4C2A 8C 1E D0		 sty $d01e
+     7 4C2D A9 40		 lda #$40
+     8 4C2F 8D 01 D0		 sta $D001
+     9 4C32 8D 00 D0		 sta $D000
+    10 4C35 A9 64		 lda #$64
+    11 4C37 8D 01 D0		 sta $D001
+    12 4C3A 8D 00 D0		 sta $D000
+    13 4C3D A9 98		 lda #$64+52
+    14 4C3F 8D 01 D0		 sta $D001
+    15 4C42 8D 00 D0		 sta $D000
+    16 4C45 A5 8B		 lda bajt
+    17 4C47 8D 01 D0		 sta $D001
+    18 4C4A 8D 00 D0		 sta $D000
+Source: dli.asm
+  2471
+  2472 				 
+  2473 				*- 1
+  2474 4C4D A9 78		p3 lda #$78
+  2475 4C4F A2 00		 ldx #$00
+  2476 4C51 A0 00		 ldy #$00
+  2477 4C53 8D 17 D0		 sta color1
+  2478 4C56 8E 14 D0		 stx colpm2
+  2479 4C59 8C 1E D0		 sty $d01e
+  2480 4C5C A9 00		 lda #$00
+  2481 4C5E 8D 1E D0		 sta $d01e
+  2482 4C61 C5 8A		 cmp byt2
+  2483 4C63 8D 1A D0		 sta colbak
+  2484 4C66 C5 8A		 cmp byt2
+  2485 4C68 8D 1E D0		 sta $d01e
+  2486 4C6B A9 00		 lda #$00
+  2487 4C6D 8D 1E D0		 sta $d01e
+  2488 4C70 8D 1E D0		 sta $d01e
+  2489 4C73 A9 B4		_c5 lda #$b4
+  2490 4C75 8D 1E D0		 sta $d01e
+  2491 4C78 E6 8A		 inc byt2
+  2492 4C7A 8D 1A D0		 sta colbak
+  2493
+  2494 				*- 2
+  2495 4C7D A9 78		p4 lda #$78
+  2496 				; ldx #$00
+  2497 				; ldy #$00
+  2498 4C7F 8D 17 D0		 sta color1
+  2499 4C82 8E 1E D0		 stx $d01e
+  2500 4C85 8C 1E D0		 sty $d01e
+  2501 4C88 A9 00		 lda #$00
+  2502 4C8A 8D 1E D0		 sta $d01e
+  2503 4C8D C5 8A		 cmp byt2
+  2504 4C8F 8D 1A D0		 sta colbak
+  2505 4C92 C5 8A		 cmp byt2
+  2506 4C94 8D 1E D0		 sta $d01e
+  2507 4C97 A9 00		 lda #$00
+  2508 4C99 8D 1E D0		 sta $d01e
+  2509 4C9C 8D 1E D0		 sta $d01e
+  2510 4C9F A9 B4		_c6 lda #$b4
+  2511 4CA1 8D 1E D0		 sta $d01e
+  2512 4CA4 E6 8A		 inc byt2
+  2513 4CA6 8D 1A D0		 sta colbak
+  2514
+  2515 				*- 3
+  2516 4CA9 A9 78		p5 lda #$78
+  2517 				; ldx #$00
+  2518 				; ldy #$00
+  2519 4CAB 8D 17 D0		 sta color1
+  2520 4CAE 8E 1E D0		 stx $d01e
+  2521 4CB1 8C 1E D0		 sty $d01e
+  2522 4CB4 A9 00		 lda #$00
+  2523 4CB6 8D 1E D0		 sta $d01e
+  2524 4CB9 C5 8A		 cmp byt2
+  2525 4CBB 8D 1A D0		 sta colbak
+  2526 4CBE C5 8A		 cmp byt2
+  2527 4CC0 8D 1E D0		 sta $d01e
+  2528 4CC3 A9 00		 lda #$00
+  2529 4CC5 8D 1E D0		 sta $d01e
+  2530 4CC8 8D 1E D0		 sta $d01e
+  2531 4CCB A9 B4		_c7 lda #$b4
+  2532 4CCD 8D 1E D0		 sta $d01e
+  2533 4CD0 E6 8A		 inc byt2
+  2534 4CD2 8D 1A D0		 sta colbak
+  2535
+  2536 4CD5 8D 0A D4 8D 0A D4	 :2 sta $d40a
+  2537
+  2538 4CDB A9 00		 lda #$00
+  2539 4CDD 8D 0A D4		 sta $d40a
+  2540 4CE0 8D 18 D0		 sta color2
+  2541
+  2542 4CE3 4C CB 57		 jmp nmiQ
+  2543
+  2544 				;--
+  2545
+  2546 4CE6			wait60cycle
+  2547 4CE6 20 F6 4C		 jsr _rts
+  2548 4CE9 CD 00 01		 cmp byt3
+  2549 4CEC			wait44cycle
+  2550 4CEC EE 00 01		 inc byt3
+  2551 4CEF EA			 nop
+  2552 4CF0			wait36cycle
+  2553 4CF0 20 F6 4C		 jsr _rts
+  2554 4CF3			wait24cycle
+  2555 4CF3 20 F6 4C		 jsr _rts
+  2556 4CF6 60			_rts rts
+  2557
+  2558 				;--
+  2559
+  2560
+  2561 				.macro linia
+  2562 				 lda #$00
+  2563 				 ldx #$00
+  2564 				 ldy #$00
+  2565 				 sta color1
+  2566 				 stx $d01e
+  2567 				 sty $d01e
+  2568 				 lda #$40
+  2569 				 sta $D001
+  2570 				 sta $D000
+  2571 				 lda #$64
+  2572 				 sta $D001
+  2573 				 sta $D000
+  2574 				 lda #$64+52
+  2575 				 sta $D001
+  2576 				 sta $D000
+  2577 				 lda bajt
+  2578 				 sta $D001
+  2579 				 sta $D000
+  2580 				; inc byt2
+  2581 				.endm
+  2582
+  2583
+  2584 				.macro dli_quit
+  2585 				
+  2586 				 .if .hi(?old_dli)==.hi(:1)
+  2587 				   mva <:1 vdli+1
+  2588 				 .else
+  2589 				   mwa #:1 vdli+1
+  2590 				 .endif
+  2591 				
+  2592 				  jmp nmiQ
+  2593 				
+  2594 				  .def ?old_dli
+  2595 				.endm
+   107 				.endl
+   108
+   109
+   110 4CF7			main
+   111
+   112 4CF7 AD 14 D0		 lda palntsc
+   113 4CFA C9 01		 cmp #1 
+   114 4CFC F0 08		 beq _skip
+   115
+   116 4CFE A9 3C		 lda #60
+   117 4D00 8D F1 4D		 sta _palntsc+1
+   118 4D03 8D CB 54		 sta DEC_CLOCK._palntsc+1
+   119
+   120 4D06			_skip
+   121 4D06 20 D2 57		 jsr setpmcol
+   122 4D09 20 06 BD		 jsr save_color
+   123
+   124 4D0C			_pal
+   125 				 WAIT #1
+   125 				 LDX# 1\ JSR WAIT
+   125 4D0C A2 01		 LDX# 1
+   125 4D0E 20 05 BC		 JSR WAIT
+   126 				 
+   127 4D11 78			 sei
+   128 4D12 A9 00 8D 0E D4	 mva #0	  $d40e
+   129 4D17 8D 00 D4		 sta $d400
+   130
+   131 4D1A A9 FE 8D 01 D3	 mva #$fe $d301
+   132
+   133 4D1F A9 C0 8D 07 D4	 mva >pmg $d407		; missiles and players data address
+   134 4D24 A9 03 8D 1D D0	 mva #3 $d01d		; enable players and missiles
+   135
+   136 				; lda #$cc		; stala wartosc dla ostatniej pozycji duchow
+   137 				; sta bajt
+   138
+   139 4D29 A9 01		 lda #1
+   140 4D2B 20 8F 97		 jsr sid_init
+   141
+   142 4D2E 20 67 58		 jsr CRC16.MAKECRCTABLE
+   143
+   144
+   145 				* --- EKRAN TYTULOWY
+   146
+   147 				 INFLATE	#nibbly_logo	,	#fntTit		; -> $d800..$ff00
+   147 				 MWA #NIBBLY_LOGO INPUTPOINTER\ MWA #FNTTIT OUTPUTPOINTER\ JSR INFLATE
+   147 4D31 A9 AA 85 E0 A9 1B +  MWA #NIBBLY_LOGO INPUTPOINTER
+   147 4D39 A9 00 85 E2 A9 D8 +  MWA #FNTTIT OUTPUTPOINTER
+   147 4D41 20 00 FC		 JSR INFLATE
+   148
+   149 4D44 20 98 10		 jsr title_main
+   150
+   151
+   152 				* --- GRA
+   153
+   154 4D47 AD 0B D4 D0 FB	 lda:rne $d40b
+   155
+   156 4D4C A9 00 8D E4 84	 mva #$00  msx_stop+1
+   157 4D51 8D 40 4E		 sta _fade+1
+   158
+   159 4D54 AD 20 BE 8D CB BD	 mva __color_nr  color_nr	; BYTE
+   160
+   161 4D5A A9 77 8D 21 BE A9 +  mwa #l_tcol2   __l_tcol
+   162 4D64 A9 A1 8D 23 BE A9 +  mwa #h_tcol2   __h_tcol
+   163 4D6E A9 CC 8D 25 BE A9 +  mwa #t_satur2  __t_satur
+   164 4D78 A9 F6 8D 27 BE A9 +  mwa #t_color2  __t_color
+   165
+   166 				 INFLATE	#nibbly_fnt	,	#fnt
+   166 				 MWA #NIBBLY_FNT INPUTPOINTER\ MWA #FNT OUTPUTPOINTER\ JSR INFLATE
+   166 4D82 A9 1F 85 E0 A9 B8 +  MWA #NIBBLY_FNT INPUTPOINTER
+   166 4D8A A9 00 85 E2 A9 D8 +  MWA #FNT OUTPUTPOINTER
+   166 4D92 20 00 FC		 JSR INFLATE
+   167
+   168 				 INFLATE	#nibbly_pmg	,	#pmg+$300
+   168 				 MWA #NIBBLY_PMG INPUTPOINTER\ MWA #PMG+$300 OUTPUTPOINTER\ JSR INFLATE
+   168 4D95 A9 BD 85 E0 A9 BB +  MWA #NIBBLY_PMG INPUTPOINTER
+   168 4D9D A9 00 85 E2 A9 C3 +  MWA #PMG+$300 OUTPUTPOINTER
+   168 4DA5 20 00 FC		 JSR INFLATE
+   169
+   170 4DA8 A9 0C		 lda <nmi
+   171 4DAA 8D FA FF		 sta $fffa
+   172 4DAD 8D FE FF		 sta $fffe
+   173 4DB0 A9 57		 lda >nmi
+   174 4DB2 8D FB FF		 sta $fffb
+   175 4DB5 8D FF FF		 sta $ffff
+   176
+   177 4DB8 A9 CC		 lda #$cc		; stala wartosc dla ostatniej pozycji duchow
+   178 4DBA 85 8B		 sta bajt
+   179
+   180 4DBC A9 2A 8D 1B 57 A9 +  mwa #dli.dli0 vdli+1
+   181
+   182 4DC6 A9 C0 8D 0E D4	 mva #$c0 $d40e
+   183
+   184
+   185 				*---
+   186 4DCB			start
+   187 4DCB A9 76		 lda #[3^$75]	;9
+   188 4DCD 49 75		 eor #$75
+   189 4DCF 8D 3D 38		 sta dli.lives			; liczba zyc
+   190
+   191 4DD2 A9 00		 lda #0
+   192 4DD4 8D 36 3F		 sta dli.punkt_0		; punkty 6x0
+   193 4DD7 8D 33 40		 sta dli.punkt_1
+   194 4DDA 8D 30 41		 sta dli.punkt_2
+   195 4DDD 8D 2D 42		 sta dli.punkt_3
+   196 4DE0 8D 2A 43		 sta dli.punkt_4
+   197 4DE3 8D 54 44		 sta dli.punkt_5
+   198
+   199
+   200 4DE6			restart
+   201 				 WAIT #1
+   201 				 LDX# 1\ JSR WAIT
+   201 4DE6 A2 01		 LDX# 1
+   201 4DE8 20 05 BC		 JSR WAIT
+   202
+   203 4DEB A9 01		 lda #def_joy_delay
+   204 4DED 8D 00 85		 sta joy_delay
+   205
+   206 4DF0 A9 32		_palntsc lda #50
+   207 4DF2 8D 01 85		 sta second
+   208 4DF5 8D 79 55		 sta notime+1
+   209
+   210 4DF8 A9 00		 lda #0
+   211 4DFA 8D 3F 3C		 sta dli.clock_1	; zerujemy zegar 00:00
+   212 4DFD 8D 3C 3D		 sta dli.clock_3
+   213 4E00 8D 55 3E		 sta dli.clock_4
+   214 				 
+   215 				; lda #0		; usuwamy napis
+   216 4E03 8D 82 57		 sta spr0+1
+   217 4E06 8D 87 57		 sta spr1+1
+   218 4E09 8D 8C 57		 sta mis0+1
+   219 4E0C 8D 91 57		 sta mis1+1
+   220
+   221 4E0F 8D 08 4F		 sta _old+1
+   222
+   223 4E12 A9 D8		 lda >fnt
+   224 4E14 8D 2A 3E		 sta dli.f0+1
+   225
+   226 4E17 A0 00		 ldy #0			; ustawiamy robala na pozycji poczatkowej
+   227 				 
+   228 4E19 8C 18 55		 sty _SRC_TEST._eat+1	; zerujemy licznik zjedzonych "ziaren"
+   229
+   230 4E1C A9 0C		 lda <@start+10*2
+   231 4E1E 85 80		 sta src
+   232 4E20 85 82		 sta srcOLD
+   233
+   234 4E22 99 00 C1 C8		 sta l_adr,y+
+   235 4E26 D0 FA		 rne
+   236
+   237 4E28 A9 CB		 lda >@start+10*2
+   238 4E2A 85 81		 sta src+1
+   239 4E2C 85 83		 sta srcOLD+1
+   240
+   241 4E2E 99 00 C2 C8		 sta h_adr,y+
+   242 4E32 D0 FA		 rne
+   243
+   244
+   245 4E34 A9 01		 lda #1
+   246 4E36 85 88		 sta idx		; pierwszy wolny indeks umozliwiajacy wpis do tablicy RUCH
+   247 4E38 A9 01		 lda #1
+   248 4E3A 85 89		 sta len		; poczatkowa dlugosc robala
+   249 				 
+   250 4E3C 20 E1 55		 jsr _LEVEL
+   251
+   252 4E3F A9 00		_fade lda #0
+   253 4E41 D0 03		 sne
+   254 4E43 20 2E BC		 jsr fade_in
+   255
+   256 4E46 A9 FF 8D 40 4E	 mva #$ff  _fade+1
+   257
+   258
+   259 4E4B A9 81		 lda #zpusty		; czyscimy pole pod glowa robala
+   260 4E4D A0 00		 ldy #0
+   261 4E4F 91 80		 sta (src),y
+   262 4E51 C8			 iny
+   263 4E52 91 80		 sta (src),y
+   264 4E54 A0 28		 ldy #@sw
+   265 4E56 91 80		 sta (src),y
+   266 4E58 C8			 iny
+   267 4E59 91 80		 sta (src),y 
+   268
+   269 4E5B A9 02		 lda #2			; startujemy zegar
+   270 4E5D 8D 3F 3C		 sta dli.clock_1
+   271 4E60 A9 00		 lda #0
+   272 4E62 8D C5 57		 sta zegar+1
+   273
+   274
+   275 4E65 20 DE 50		 jsr _CLR_HEAD		; ustawiamy glowe
+   276
+   277 4E68 A9 22		 lda #$22
+   278 4E6A 8D 2C 3E		 sta dli.nap_gti+1
+   279
+   280 4E6D A9 00		 lda #0
+   281 4E6F 8D 6B 57		 sta hsiz+1
+   282
+   283 4E72 A9 24		 lda #$24
+   284 4E74 8D 73 57		 sta c7+1
+   285 4E77 8D 2E 44		 sta dli.nap_col0+1
+   286 4E7A A9 38		 lda #$38
+   287 4E7C 8D 78 57		 sta c8+1
+   288 4E7F 8D 33 44		 sta dli.nap_col1+1
+   289
+   290 4E82 A9 80		 lda #128
+   291 4E84 8D 82 57		 sta spr0+1
+   292 4E87 8D 87 57		 sta spr1+1
+   293 4E8A 85 8D		 sta posX
+   294
+   295 4E8C A9 A0		 lda #128+32
+   296 4E8E 85 8E		 sta posY
+   297
+   298 4E90 20 2A 6A		 jsr _HEAD_UP			; glowa w gore
+   299
+   300 4E93 4C E3 4E		 jmp loop_prv
+   301
+   302
+   303 				*--- WELL DONE
+   304
+   305 4E96			welldone
+   306 4E96 A9 60		 lda #{rts}
+   307 4E98 8D 0F 67		 sta text._rts		; nie bedzie czekal na FIRE, wyswietlamy napis WELL DONE 
+   308
+   309 				 SID_RESTART #song2
+   309 				 LDA# SONG2\ JSR SID_RESTART
+   309 4E9B A9 02		 LDA# SONG2
+   309 4E9D 20 56 9F		 JSR SID_RESTART
+   310
+   311 4EA0 20 92 58		 jsr CRC16.calc
+   312
+   313 				 TEXT #0
+   313 				 LDX# 0\ JSR TEXT
+   313 4EA3 A2 00		 LDX# 0
+   313 4EA5 20 7F 65		 JSR TEXT
+   314
+   315 4EA8			_loop			; dostajemy punkty za pozostaly czas x2
+   316 				 WAIT #1
+   316 				 LDX# 1\ JSR WAIT
+   316 4EA8 A2 01		 LDX# 1
+   316 4EAA 20 05 BC		 JSR WAIT
+   317 				 
+   318 4EAD A9 01		 lda #1
+   319 4EAF 8D 01 85		 sta second
+   320 				 
+   321 4EB2 20 B7 54		 jsr DEC_CLOCK
+   322 4EB5 20 06 54		 jsr INC_PUNKTY
+   323 4EB8 20 06 54		 jsr INC_PUNKTY
+   324
+   325 4EBB AD 79 55		 lda notime+1
+   326 4EBE D0 E8		 bne _loop
+   327
+   328 4EC0 20 10 67		 jsr text._rts+1	; usuwamy napis WELL DONE (omijamy rozkaz RTS)
+   329
+   330 4EC3			next
+   331 4EC3 20 D1 4E		 jsr ADD_LEVEL
+   332 				 
+   333 4EC6 20 57 54		 jsr INC_ROUND
+   334
+   335 				 SID_RESTART #song5
+   335 				 LDA# SONG5\ JSR SID_RESTART
+   335 4EC9 A9 05		 LDA# SONG5
+   335 4ECB 20 56 9F		 JSR SID_RESTART
+   336
+   337 4ECE 4C E6 4D		 jmp restart
+   338
+   339
+   340 4ED1			ADD_LEVEL
+   341 4ED1 AD 07 57		 lda _LEVEL.adr		; nastepny level, nastepna runda
+   342 4ED4 18			 clc
+   343 4ED5 69 1B		 adc #lsiz
+   344 4ED7 8D 07 57		 sta _LEVEL.adr
+   345 4EDA 90 03		 scc
+   346 4EDC EE 08 57		 inc _LEVEL.adr+1
+   347 4EDF 60			 rts
+   348
+   349
+   350 				*--- ESCAPE
+   351
+   352 4EE0			esc
+   353 4EE0 20 2F 55		 jsr _SRC_TEST.ouch		; po tym juz nie wroci
+   354
+   355
+   356 				*--- LET'S GO
+   357
+   358 4EE3			loop_prv
+   359
+   360 4EE3 A9 01		 lda #def_joy_delay
+   361 4EE5 8D 00 85		 sta joy_delay
+   362
+   363 4EE8 AD 0B 57		 lda _LEVEL.ile
+   364 4EEB C9 01		 cmp #1
+   365 4EED F0 A7		 beq welldone
+   366
+   367 4EEF			read_joy
+   368
+   369
+   370 4EEF AD 0F D2		 lda $d20f		; ZWIEKSZENIE LEVELU PO NACISNIECIU KLAWISZA
+   371 4EF2 29 04		 and #4			;
+   372 4EF4 D0 07		 bne ___nxt		;
+   373
+   374 4EF6 AD 09 D2		 lda $d209
+   375 4EF9 C9 1C		 cmp #$1c
+   376 4EFB F0 E3		 beq esc 
+   377 				 
+   378 				; lda #$ff		;
+   379 				; sta zegar+1		;
+   380 				; jmp next		;
+   381 4EFD			___nxt			;
+   382
+   383
+   384 4EFD 20 78 55		 jsr notime
+   385
+   386 4F00 A0 00		r_d300 ldy #0
+   387 4F02 C0 0F		 cpy #$0f
+   388 4F04 F0 E9		 beq read_joy
+   389 				 
+   390 4F06 98			 tya
+   391 4F07 C9 00		_old cmp #0
+   392 4F09 D0 05		 bne _ok
+   393 				 
+   394 4F0B CE 00 85		 dec joy_delay
+   395 4F0E D0 DF		 bne read_joy 
+   396
+   397 4F10			_ok
+   398 4F10 98			 tya
+   399
+   400 4F11 B9 60 8D		 lda l_adr_joy,y
+   401 4F14 8D 18 4F		 sta _jmp+1
+   402
+   403 4F17 4C 00 50		_jmp jmp _joy_nil
+   404
+   405
+   406 				*--- PROCEDURY OBSLUGI JOYA MIESZCZA SIE NA 1 STRONIE
+   407 				*--- ZACZYNAJA SIE OD POCZATKU STRONY PAMIECI
+   408
+   409 4F1A			 .align
+   410
+   411 5000			.pages
+   412
+   413 5000			_joy_nil
+   414 5000-58D7> A9 01		 lda #1
+   415 5002 8D 00 85		 sta joy_delay
+   416 				 
+   417 5005 4C EF 4E		 jmp read_joy
+   418
+   419
+   420 5008			_rg	.local
+   421 5008 AD 08 4F		 lda _old+1
+   422 500B C9 0B		 cmp #@left
+   423 500D F0 2B		 beq _skp
+   424 500F 8D 12 55		 sta _SRC_TEST._old_restore+1
+   425
+   426 5012 98			 tya
+   427 5013 8D 08 4F		 sta _old+1
+   428
+   429 5016			 _ADD_RUCH
+Macro: _ADD_RUCH [Source: nibbly.asm]
+     2 5016 A6 88		 ldx idx
+     4 5018 9D 00 86		 sta kier,x 
+     6 501B A5 80		 lda src	; w (scrOLD) zapamietujemy stara wartosc (SRC)
+     7 501D 85 82		 sta srcOLD
+     8 501F 9D 00 C1		 sta l_adr,x	; RUCH [ IDX ] = KIERUNEK
+    10 5022 A5 81		 lda src+1
+    11 5024 85 83		 sta srcOLD+1
+    12 5026 9D 00 C2		 sta h_adr,x
+    14 5029 E6 88		 inc idx	; IDX = IDX + 1
+Source: nibbly.asm
+   430 502B E6 80 D0 02 E6 81	 inw src
+   431 5031 E6 80 D0 02 E6 81	 inw src
+   432 5037 20 ED 54		 jsr _SRC_TEST
+   433
+   434 503A			_skp
+   435 503A 4C E3 4E		 jmp loop_prv
+   436 				.endl
+   437
+   438
+   439 503D			_lf	.local
+   440 503D AD 08 4F		 lda _old+1
+   441 5040 C9 07		 cmp #@right
+   442 5042 F0 2F		 beq _skp
+   443 5044 8D 12 55		 sta _SRC_TEST._old_restore+1
+   444
+   445 5047 98			 tya
+   446 5048 8D 08 4F		 sta _old+1
+   447
+   448 504B			 _ADD_RUCH
+Macro: _ADD_RUCH [Source: nibbly.asm]
+     2 504B A6 88		 ldx idx
+     4 504D 9D 00 86		 sta kier,x 
+     6 5050 A5 80		 lda src	; w (scrOLD) zapamietujemy stara wartosc (SRC)
+     7 5052 85 82		 sta srcOLD
+     8 5054 9D 00 C1		 sta l_adr,x	; RUCH [ IDX ] = KIERUNEK
+    10 5057 A5 81		 lda src+1
+    11 5059 85 83		 sta srcOLD+1
+    12 505B 9D 00 C2		 sta h_adr,x
+    14 505E E6 88		 inc idx	; IDX = IDX + 1
+Source: nibbly.asm
+   449 5060 A5 80 D0 02 C6 81 +  dew src
+   450 5068 A5 80 D0 02 C6 81 +  dew src
+   451 5070 20 ED 54		 jsr _SRC_TEST
+   452
+   453 5073			_skp
+   454 5073 4C E3 4E		 jmp loop_prv
+   455 				.endl
+   456
+   457
+   458 5076			_up	.local
+   459 5076 AD 08 4F		 lda _old+1
+   460 5079 C9 0D		 cmp #@down
+   461 507B F0 2A		 beq _skp
+   462 507D 8D 12 55		 sta _SRC_TEST._old_restore+1
+   463
+   464 5080 98			 tya
+   465 5081 8D 08 4F		 sta _old+1
+   466
+   467 5084			 _ADD_RUCH
+Macro: _ADD_RUCH [Source: nibbly.asm]
+     2 5084 A6 88		 ldx idx
+     4 5086 9D 00 86		 sta kier,x 
+     6 5089 A5 80		 lda src	; w (scrOLD) zapamietujemy stara wartosc (SRC)
+     7 508B 85 82		 sta srcOLD
+     8 508D 9D 00 C1		 sta l_adr,x	; RUCH [ IDX ] = KIERUNEK
+    10 5090 A5 81		 lda src+1
+    11 5092 85 83		 sta srcOLD+1
+    12 5094 9D 00 C2		 sta h_adr,x
+    14 5097 E6 88		 inc idx	; IDX = IDX + 1
+Source: nibbly.asm
+   468 5099 A5 80		 lda src
+   469 509B 38			 sec
+   470 509C E9 50		 sbc #@sw*2
+   471 509E 85 80		 sta src
+   472 50A0 B0 02		 scs
+   473 50A2 C6 81		 dec src+1
+   474 50A4 20 ED 54		 jsr _SRC_TEST
+   475
+   476 50A7			_skp
+   477 50A7 4C E3 4E		 jmp loop_prv
+   478 				.endl
+   479
+   480
+   481 50AA			_dw	.local
+   482 50AA AD 08 4F		 lda _old+1
+   483 50AD C9 0E		 cmp #@up
+   484 50AF F0 2A		 beq _skp
+   485 50B1 8D 12 55		 sta _SRC_TEST._old_restore+1
+   486
+   487 50B4 98			 tya
+   488 50B5 8D 08 4F		 sta _old+1
+   489
+   490 50B8			 _ADD_RUCH
+Macro: _ADD_RUCH [Source: nibbly.asm]
+     2 50B8 A6 88		 ldx idx
+     4 50BA 9D 00 86		 sta kier,x 
+     6 50BD A5 80		 lda src	; w (scrOLD) zapamietujemy stara wartosc (SRC)
+     7 50BF 85 82		 sta srcOLD
+     8 50C1 9D 00 C1		 sta l_adr,x	; RUCH [ IDX ] = KIERUNEK
+    10 50C4 A5 81		 lda src+1
+    11 50C6 85 83		 sta srcOLD+1
+    12 50C8 9D 00 C2		 sta h_adr,x
+    14 50CB E6 88		 inc idx	; IDX = IDX + 1
+Source: nibbly.asm
+   491 50CD A5 80		 lda src
+   492 50CF 18			 clc
+   493 50D0 69 50		 adc #@sw*2
+   494 50D2 85 80		 sta src
+   495 50D4 90 02		 scc
+   496 50D6 E6 81		 inc src+1
+   497 50D8 20 ED 54		 jsr _SRC_TEST
+   498
+   499 50DB			_skp
+   500 50DB 4C E3 4E		 jmp loop_prv
+   501 				.endl
+   502
+   503 50DE			.endpg
+   504
+   505
+   506 				*--- CZYSCIMY PAMIEC PMG DLA GLOWY ROBALA
+   507
+   508 50DE			.proc _CLR_HEAD
+   509 50DE A9 00		 lda #0			; ustawiamy glowe
+   510 50E0 A0 91		 ldy #144+1
+   511 50E2			_clr
+   512 50E2 99 27 C4		 sta pmg+$400+40-1,y
+   513 50E5 99 27 C5		 sta pmg+$500+40-1,y
+   514 50E8 88			 dey
+   515 50E9 D0 F7		 bne _clr
+   516 50EB 60			 rts
+   517 				.endp
+   518
+   519
+   520 				*--- PRZESUWAMY GLOWE NA DUCHACH (PM0, PM1)
+   521
+   522 				*--- TUTAJ MAKRA DLA ROZPISANIA PETLI
+   523
+   524 				.macro @@@dw
+   525 				 lda:cmp:req gate
+   526 				 inc _fn+1
+   527 				 inc posY
+   528 				 inc posY
+   529 				 :1
+   530 				.endm
+   531
+   532 				.macro @@@up
+   533 				 lda:cmp:req gate
+   534 				 inc _fn+1
+   535 				 dec posY
+   536 				 dec posY
+   537 				 :1
+   538 				.endm
+   539
+   540 				.macro @@@lf
+   541 				 lda:cmp:req gate
+   542 				 inc _fn+1
+   543 				 dec posX
+   544 				 lda posX
+   545 				 sta spr0+1
+   546 				 sta spr1+1
+   547 				.endm
+   548
+   549 				.macro @@@rg
+   550 				 lda:cmp:req gate
+   551 				 inc _fn+1
+   552 				 inc posx
+   553 				 lda posX
+   554 				 sta spr0+1
+   555 				 sta spr1+1
+   556 				.endm
+   557
+   558
+   559 				*--- TUTAJ WLASCIWA PROCEDURA
+   560
+   561 50EC			.proc _PUT_HEAD
+   562
+   563
+   564 				*--- USTALAMY KIERUNEK I WSTAWIAMY ODPOWIEDNI KLOCEK 0..11
+   565
+   566 50EC A5 89		 lda len
+   567 50EE C9 02		 cmp #2
+   568 50F0 90 36		 bcc _ok
+   569
+   570 50F2 A6 88		 ldx idx
+   571 50F4 CA			 dex
+   572 50F5 CA			 dex
+   573 50F6 BC 00 86		 ldy kier,x	; -2
+   574 50F9 B9 50 8D		 lda _lsh4,y
+   575 50FC E8			 inx
+   576 50FD 1D 00 86		 ora kier,x	; -1
+   577 5100 A8			 tay
+   578
+   579 5101 B9 00 8C		 lda tst_skip,y
+   580 5104 F0 22		 beq _ok
+   581
+   582 				; ldy idx
+   583 				; dey
+   584 5106 BD 00 C1		 lda l_adr,x
+   585 5109 85 84		 sta dst
+   586 510B BD 00 C2		 lda h_adr,x
+   587 510E 85 85		 sta dst+1
+   588
+   589 5110 B9 00 8B		 lda ofset,y
+   590
+   591 5113 A0 00		 ldy #0
+   592 5115 91 84		 sta (dst),y
+   593 5117 C8			 iny
+   594 5118 09 01		 ora #1
+   595 511A 91 84		 sta (dst),y
+   596 				 
+   597 511C A0 28		 ldy #@sw
+   598 511E 18			 clc
+   599 511F 69 01		 adc #1
+   600 5121 91 84		 sta (dst),y
+   601 5123 C8			 iny
+   602 5124 09 01		 ora #1
+   603 5126 91 84		 sta (dst),y
+   604
+   605 5128			_ok
+   606
+   607 				*--- _PUT_HEAD
+   608
+   609 5128 AC 08 4F		 ldy _old+1
+   610
+   611 512B B9 70 8D		 lda l_adr_head,y
+   612 512E 8D 38 51		 sta _jmp+1
+   613 5131 B9 80 8D		 lda h_adr_head,y
+   614 5134 8D 39 51		 sta _jmp+2
+   615
+   616 5137 4C FF FF		_jmp jmp $FFFF
+   617 				 
+   618
+   619 513A			_dw
+   620 513A			 @@@dw	"jsr _HEAD_DOWN"
+Macro: @@@DW [Source: nibbly.asm]
+     1 513A A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 5140 EE 32 57		 inc _fn+1
+     3 5143 E6 8E		 inc posY
+     4 5145 E6 8E		 inc posY
+     5 5147 20 6D 69		 jsr _HEAD_DOWN
+Source: nibbly.asm
+   621 514A			 @@@dw	"jsr _HEAD_DOWN"
+Macro: @@@DW [Source: nibbly.asm]
+     1 514A A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 5150 EE 32 57		 inc _fn+1
+     3 5153 E6 8E		 inc posY
+     4 5155 E6 8E		 inc posY
+     5 5157 20 6D 69		 jsr _HEAD_DOWN
+Source: nibbly.asm
+   622 515A			 @@@dw	"jsr _HEAD_DOWN"
+Macro: @@@DW [Source: nibbly.asm]
+     1 515A A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 5160 EE 32 57		 inc _fn+1
+     3 5163 E6 8E		 inc posY
+     4 5165 E6 8E		 inc posY
+     5 5167 20 6D 69		 jsr _HEAD_DOWN
+Source: nibbly.asm
+   623 516A			 @@@dw	"jsr _HEAD_DOWN"
+Macro: @@@DW [Source: nibbly.asm]
+     1 516A A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 5170 EE 32 57		 inc _fn+1
+     3 5173 E6 8E		 inc posY
+     4 5175 E6 8E		 inc posY
+     5 5177 20 6D 69		 jsr _HEAD_DOWN
+Source: nibbly.asm
+   624 517A			 @@@dw	"jsr _HEAD_DOWN"
+Macro: @@@DW [Source: nibbly.asm]
+     1 517A A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 5180 EE 32 57		 inc _fn+1
+     3 5183 E6 8E		 inc posY
+     4 5185 E6 8E		 inc posY
+     5 5187 20 6D 69		 jsr _HEAD_DOWN
+Source: nibbly.asm
+   625 518A			 @@@dw	"jsr _HEAD_DOWN"
+Macro: @@@DW [Source: nibbly.asm]
+     1 518A A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 5190 EE 32 57		 inc _fn+1
+     3 5193 E6 8E		 inc posY
+     4 5195 E6 8E		 inc posY
+     5 5197 20 6D 69		 jsr _HEAD_DOWN
+Source: nibbly.asm
+   626 519A			 @@@dw	"jsr _HEAD_DOWN"
+Macro: @@@DW [Source: nibbly.asm]
+     1 519A A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 51A0 EE 32 57		 inc _fn+1
+     3 51A3 E6 8E		 inc posY
+     4 51A5 E6 8E		 inc posY
+     5 51A7 20 6D 69		 jsr _HEAD_DOWN
+Source: nibbly.asm
+   627 51AA			 @@@dw	"jmp _HEAD_DOWN"
+Macro: @@@DW [Source: nibbly.asm]
+     1 51AA A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 51B0 EE 32 57		 inc _fn+1
+     3 51B3 E6 8E		 inc posY
+     4 51B5 E6 8E		 inc posY
+     5 51B7 4C 6D 69		 jmp _HEAD_DOWN
+Source: nibbly.asm
+   628
+   629 51BA			_up
+   630 51BA			 @@@up	"jsr _HEAD_UP"
+Macro: @@@UP [Source: nibbly.asm]
+     1 51BA A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 51C0 EE 32 57		 inc _fn+1
+     3 51C3 C6 8E		 dec posY
+     4 51C5 C6 8E		 dec posY
+     5 51C7 20 2A 6A		 jsr _HEAD_UP
+Source: nibbly.asm
+   631 51CA			 @@@up	"jsr _HEAD_UP"
+Macro: @@@UP [Source: nibbly.asm]
+     1 51CA A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 51D0 EE 32 57		 inc _fn+1
+     3 51D3 C6 8E		 dec posY
+     4 51D5 C6 8E		 dec posY
+     5 51D7 20 2A 6A		 jsr _HEAD_UP
+Source: nibbly.asm
+   632 51DA			 @@@up	"jsr _HEAD_UP"
+Macro: @@@UP [Source: nibbly.asm]
+     1 51DA A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 51E0 EE 32 57		 inc _fn+1
+     3 51E3 C6 8E		 dec posY
+     4 51E5 C6 8E		 dec posY
+     5 51E7 20 2A 6A		 jsr _HEAD_UP
+Source: nibbly.asm
+   633 51EA			 @@@up	"jsr _HEAD_UP"
+Macro: @@@UP [Source: nibbly.asm]
+     1 51EA A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 51F0 EE 32 57		 inc _fn+1
+     3 51F3 C6 8E		 dec posY
+     4 51F5 C6 8E		 dec posY
+     5 51F7 20 2A 6A		 jsr _HEAD_UP
+Source: nibbly.asm
+   634 51FA			 @@@up	"jsr _HEAD_UP"
+Macro: @@@UP [Source: nibbly.asm]
+     1 51FA A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 5200 EE 32 57		 inc _fn+1
+     3 5203 C6 8E		 dec posY
+     4 5205 C6 8E		 dec posY
+     5 5207 20 2A 6A		 jsr _HEAD_UP
+Source: nibbly.asm
+   635 520A			 @@@up	"jsr _HEAD_UP"
+Macro: @@@UP [Source: nibbly.asm]
+     1 520A A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 5210 EE 32 57		 inc _fn+1
+     3 5213 C6 8E		 dec posY
+     4 5215 C6 8E		 dec posY
+     5 5217 20 2A 6A		 jsr _HEAD_UP
+Source: nibbly.asm
+   636 521A			 @@@up	"jsr _HEAD_UP"
+Macro: @@@UP [Source: nibbly.asm]
+     1 521A A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 5220 EE 32 57		 inc _fn+1
+     3 5223 C6 8E		 dec posY
+     4 5225 C6 8E		 dec posY
+     5 5227 20 2A 6A		 jsr _HEAD_UP
+Source: nibbly.asm
+   637 522A			 @@@up	"jmp _HEAD_UP"
+Macro: @@@UP [Source: nibbly.asm]
+     1 522A A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 5230 EE 32 57		 inc _fn+1
+     3 5233 C6 8E		 dec posY
+     4 5235 C6 8E		 dec posY
+     5 5237 4C 2A 6A		 jmp _HEAD_UP
+Source: nibbly.asm
+   638
+   639 523A			_lf
+   640 523A 20 CA 68		 jsr _HEAD_LEFT
+   641 523D			 @@@lf
+Macro: @@@LF [Source: nibbly.asm]
+     1 523D A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 5243 EE 32 57		 inc _fn+1
+     3 5246 C6 8D		 dec posX
+     4 5248 A5 8D		 lda posX
+     5 524A 8D 82 57		 sta spr0+1
+     6 524D 8D 87 57		 sta spr1+1
+Source: nibbly.asm
+   642 5250			 @@@lf
+Macro: @@@LF [Source: nibbly.asm]
+     1 5250 A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 5256 EE 32 57		 inc _fn+1
+     3 5259 C6 8D		 dec posX
+     4 525B A5 8D		 lda posX
+     5 525D 8D 82 57		 sta spr0+1
+     6 5260 8D 87 57		 sta spr1+1
+Source: nibbly.asm
+   643 5263			 @@@lf
+Macro: @@@LF [Source: nibbly.asm]
+     1 5263 A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 5269 EE 32 57		 inc _fn+1
+     3 526C C6 8D		 dec posX
+     4 526E A5 8D		 lda posX
+     5 5270 8D 82 57		 sta spr0+1
+     6 5273 8D 87 57		 sta spr1+1
+Source: nibbly.asm
+   644 5276			 @@@lf
+Macro: @@@LF [Source: nibbly.asm]
+     1 5276 A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 527C EE 32 57		 inc _fn+1
+     3 527F C6 8D		 dec posX
+     4 5281 A5 8D		 lda posX
+     5 5283 8D 82 57		 sta spr0+1
+     6 5286 8D 87 57		 sta spr1+1
+Source: nibbly.asm
+   645 5289			 @@@lf
+Macro: @@@LF [Source: nibbly.asm]
+     1 5289 A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 528F EE 32 57		 inc _fn+1
+     3 5292 C6 8D		 dec posX
+     4 5294 A5 8D		 lda posX
+     5 5296 8D 82 57		 sta spr0+1
+     6 5299 8D 87 57		 sta spr1+1
+Source: nibbly.asm
+   646 529C			 @@@lf
+Macro: @@@LF [Source: nibbly.asm]
+     1 529C A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 52A2 EE 32 57		 inc _fn+1
+     3 52A5 C6 8D		 dec posX
+     4 52A7 A5 8D		 lda posX
+     5 52A9 8D 82 57		 sta spr0+1
+     6 52AC 8D 87 57		 sta spr1+1
+Source: nibbly.asm
+   647 52AF			 @@@lf
+Macro: @@@LF [Source: nibbly.asm]
+     1 52AF A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 52B5 EE 32 57		 inc _fn+1
+     3 52B8 C6 8D		 dec posX
+     4 52BA A5 8D		 lda posX
+     5 52BC 8D 82 57		 sta spr0+1
+     6 52BF 8D 87 57		 sta spr1+1
+Source: nibbly.asm
+   648 52C2			 @@@lf
+Macro: @@@LF [Source: nibbly.asm]
+     1 52C2 A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 52C8 EE 32 57		 inc _fn+1
+     3 52CB C6 8D		 dec posX
+     4 52CD A5 8D		 lda posX
+     5 52CF 8D 82 57		 sta spr0+1
+     6 52D2 8D 87 57		 sta spr1+1
+Source: nibbly.asm
+   649 52D5 60			 rts
+   650
+   651 52D6			_rg
+   652 52D6 20 27 68		 jsr _HEAD_RIGHT
+   653 52D9			 @@@rg
+Macro: @@@RG [Source: nibbly.asm]
+     1 52D9 A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 52DF EE 32 57		 inc _fn+1
+     3 52E2 E6 8D		 inc posx
+     4 52E4 A5 8D		 lda posX
+     5 52E6 8D 82 57		 sta spr0+1
+     6 52E9 8D 87 57		 sta spr1+1
+Source: nibbly.asm
+   654 52EC			 @@@rg
+Macro: @@@RG [Source: nibbly.asm]
+     1 52EC A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 52F2 EE 32 57		 inc _fn+1
+     3 52F5 E6 8D		 inc posx
+     4 52F7 A5 8D		 lda posX
+     5 52F9 8D 82 57		 sta spr0+1
+     6 52FC 8D 87 57		 sta spr1+1
+Source: nibbly.asm
+   655 52FF			 @@@rg
+Macro: @@@RG [Source: nibbly.asm]
+     1 52FF A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 5305 EE 32 57		 inc _fn+1
+     3 5308 E6 8D		 inc posx
+     4 530A A5 8D		 lda posX
+     5 530C 8D 82 57		 sta spr0+1
+     6 530F 8D 87 57		 sta spr1+1
+Source: nibbly.asm
+   656 5312			 @@@rg
+Macro: @@@RG [Source: nibbly.asm]
+     1 5312 A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 5318 EE 32 57		 inc _fn+1
+     3 531B E6 8D		 inc posx
+     4 531D A5 8D		 lda posX
+     5 531F 8D 82 57		 sta spr0+1
+     6 5322 8D 87 57		 sta spr1+1
+Source: nibbly.asm
+   657 5325			 @@@rg
+Macro: @@@RG [Source: nibbly.asm]
+     1 5325 A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 532B EE 32 57		 inc _fn+1
+     3 532E E6 8D		 inc posx
+     4 5330 A5 8D		 lda posX
+     5 5332 8D 82 57		 sta spr0+1
+     6 5335 8D 87 57		 sta spr1+1
+Source: nibbly.asm
+   658 5338			 @@@rg
+Macro: @@@RG [Source: nibbly.asm]
+     1 5338 A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 533E EE 32 57		 inc _fn+1
+     3 5341 E6 8D		 inc posx
+     4 5343 A5 8D		 lda posX
+     5 5345 8D 82 57		 sta spr0+1
+     6 5348 8D 87 57		 sta spr1+1
+Source: nibbly.asm
+   659 534B			 @@@rg
+Macro: @@@RG [Source: nibbly.asm]
+     1 534B A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 5351 EE 32 57		 inc _fn+1
+     3 5354 E6 8D		 inc posx
+     4 5356 A5 8D		 lda posX
+     5 5358 8D 82 57		 sta spr0+1
+     6 535B 8D 87 57		 sta spr1+1
+Source: nibbly.asm
+   660 535E			 @@@rg
+Macro: @@@RG [Source: nibbly.asm]
+     1 535E A5 8C C5 8C F0 FC	 lda:cmp:req gate
+     2 5364 EE 32 57		 inc _fn+1
+     3 5367 E6 8D		 inc posx
+     4 5369 A5 8D		 lda posX
+     5 536B 8D 82 57		 sta spr0+1
+     6 536E 8D 87 57		 sta spr1+1
+Source: nibbly.asm
+   661 5371 60			 rts
+   662
+   663 				.endp
+   664
+   665
+   666 				*--- NOWA POZYCJA ROBALA
+   667
+   668 5372			.proc _PUT_NIBBLY
+   669
+   670 5372 A5 89		 lda len
+   671 5374 C9 02		 cmp #2
+   672 5376 B0 29		 bcs _ok
+   673
+   674 5378 A5 88		 lda idx	; adres ogona robala
+   675 537A 38			 sec
+   676 537B E5 89		 sbc len
+   677 537D AA			 tax
+   678 537E BD 00 C1		 lda l_adr,x
+   679 5381 85 84		 sta dst
+   680 5383 BD 00 C2		 lda h_adr,x
+   681 5386 85 85		 sta dst+1
+   682
+   683 5388 A9 81		 lda #zpusty
+   684 538A A0 00		 ldy #0
+   685 538C 91 84		 sta (dst),y
+   686 538E 91 80		 sta (src),y
+   687 5390 C8			 iny
+   688 5391 91 84		 sta (dst),y
+   689 5393 91 80		 sta (src),y
+   690 5395 A0 28		 ldy #@sw
+   691 5397 91 84		 sta (dst),y
+   692 5399 91 80		 sta (src),y
+   693 539B C8			 iny
+   694 539C 91 84		 sta (dst),y
+   695 539E 91 80		 sta (src),y
+   696
+   697 53A0 60			 rts
+   698
+   699 53A1			_ok
+   700
+   701 53A1 A6 88		 ldx idx
+   702 53A3 CA			 dex
+   703 53A4 BC 00 86		 ldy kier,x	; -1
+   704
+   705 53A7 B9 00 8B		 lda ofset,y	; nowy klocek robala
+   706
+   707 53AA A0 00		 ldy #0
+   708 53AC 91 80		 sta (src),y
+   709 53AE C8			 iny
+   710 53AF 09 01		 ora #1
+   711 53B1 91 80		 sta (src),y
+   712 				 
+   713 53B3 A0 28		 ldy #@sw
+   714 53B5 18			 clc
+   715 53B6 69 01		 adc #1
+   716 53B8 91 80		 sta (src),y
+   717 53BA C8			 iny
+   718 53BB 09 01		 ora #1
+   719 53BD 91 80		 sta (src),y
+   720
+   721
+   722 53BF A5 88		 lda idx		; adres ogona robala
+   723 53C1 38			 sec
+   724 53C2 E5 89		 sbc len
+   725 53C4 AA			 tax
+   726 53C5 BD 00 C1		 lda l_adr,x
+   727 53C8 85 84		 sta dst
+   728 53CA BD 00 C2		 lda h_adr,x
+   729 53CD 85 85		 sta dst+1
+   730
+   731 				; lda <@null		; usuwamy adres ogona robala
+   732 				; sta l_adr,x
+   733 				; lda >@null
+   734 				; sta h_adr,x
+   735
+   736 53CF E8			 inx
+   737 53D0 BD 00 C1		 lda l_adr,x
+   738 53D3 85 86		 sta _tmp
+   739 53D5 BD 00 C2		 lda h_adr,x
+   740 53D8 85 87		 sta _tmp+1
+   741
+   742 53DA A9 81		 lda #zpusty		; kasujemy ogonek
+   743 53DC A0 00		 ldy #0
+   744 53DE 91 84		 sta (dst),y
+   745 53E0 C8			 iny
+   746 53E1 91 84		 sta (dst),y
+   747 53E3 A0 28		 ldy #@sw
+   748 53E5 91 84		 sta (dst),y
+   749 53E7 C8			 iny
+   750 53E8 91 84		 sta (dst),y
+   751
+   752 53EA BC 00 86		 ldy kier,x
+   753 53ED B9 10 8B		 lda ofset+16,y		; wstawiamy nowy klocek na pozycji przedostatniej ogonka
+   754
+   755 53F0 A0 00		 ldy #0
+   756 53F2 91 86		 sta (_tmp),y
+   757 53F4 C8			 iny
+   758 53F5 09 01		 ora #1
+   759 53F7 91 86		 sta (_tmp),y
+   760 53F9 A0 28		 ldy #@sw
+   761 53FB 18			 clc
+   762 53FC 69 01		 adc #1
+   763 53FE 91 86		 sta (_tmp),y
+   764 5400 C8			 iny
+   765 5401 09 01		 ora #1
+   766 5403 91 86		 sta (_tmp),y 
+   767
+   768 5405			_skp
+   769 5405 60			 rts
+   770
+   771 				.endp
+   772
+   773
+   774 				*--- ZWIEKSZENIE PUNKTACJI
+   775
+   776 5406			.proc INC_PUNKTY
+   777
+   778 5406 AD 36 3F		 lda dli.punkt_0
+   779 5409 C9 09		 cmp #9
+   780 540B F0 49		 beq _skp
+   781
+   782
+   783 540D A2 00		 ldx #0
+   784
+   785 540F AD 54 44		 lda dli.punkt_5
+   786 5412 18			 clc
+   787 5413 69 05		 adc #5
+   788 5415 8D 54 44		 sta dli.punkt_5
+   789
+   790 5418 C9 0A		 cmp #10
+   791 541A D0 3A		 bne _skp
+   792 541C 8E 54 44		 stx dli.punkt_5
+   793 541F EE 2A 43		 inc dli.punkt_4
+   794
+   795 5422 AD 2A 43		 lda dli.punkt_4
+   796 5425 C9 0A		 cmp #10
+   797 5427 D0 2D		 bne _skp
+   798 5429 8E 2A 43		 stx dli.punkt_4
+   799 542C EE 2D 42		 inc dli.punkt_3
+   800
+   801 542F AD 2D 42		 lda dli.punkt_3
+   802 5432 C9 0A		 cmp #10
+   803 5434 D0 20		 bne _skp
+   804 5436 8E 2D 42		 stx dli.punkt_3
+   805 5439 EE 30 41		 inc dli.punkt_2
+   806
+   807 543C AD 30 41		 lda dli.punkt_2
+   808 543F C9 0A		 cmp #10
+   809 5441 D0 13		 bne _skp
+   810 5443 8E 30 41		 stx dli.punkt_2
+   811 5446 EE 33 40		 inc dli.punkt_1
+   812
+   813 				; lda dli.lives
+   814 				; cmp #9
+   815 				; scs
+   816 				; inc dli.lives		; dodatkowe zycie za kazde 10.000 punktow (max 9 zyc)
+   817
+   818 5449 AD 33 40		 lda dli.punkt_1
+   819 544C C9 0A		 cmp #10
+   820 544E D0 06		 bne _skp
+   821 5450 8E 33 40		 stx dli.punkt_1
+   822 5453 EE 36 3F		 inc dli.punkt_0
+   823
+   824 5456			_skp
+   825
+   826 5456 60			 rts
+   827
+   828 				.endp
+   829
+   830
+   831 				*--- ZWIEKSZENIE NUMERU RUNDY
+   832
+   833 5457			.proc INC_ROUND
+   834
+   835 5457 EE B6 54		 inc lvl_count
+   836 545A AD B6 54		 lda lvl_count
+   837 545D C9 64		 cmp #lvl_max
+   838 545F D0 33		 bne _sk
+   839
+   840 5461 A9 FF 8D E4 84	 mva #$ff  msx_stop+1
+   841 5466 20 48 9F		 jsr sid_stop
+   842
+   843 5469 20 D2 57		 jsr setpmcol
+   844
+   845 546C 20 AC BC		 jsr fade_out
+   846
+   847 546F 20 DD 5A		 jsr CONGRATULATIONS
+   848
+   849 5472 20 7A 54		 jsr reset
+   850
+   851 5475 68			 pla
+   852 5476 68			 pla
+   853 5477 4C 0C 4D		 jmp _pal
+   854
+   855
+   856 547A			reset
+   857 547A A9 F3 8D 07 57 A9 +  mwa #levels  _LEVEL.adr
+   858
+   859 5484 A0 00		 ldy #0			; resetujemy numer rundy 001
+   860 5486 8C 48 39		 sty dli.round_0
+   861 5489 8C 45 3A		 sty dli.round_1
+   862
+   863 548C 8C B6 54		 sty lvl_count		; dodatkowy licznik rund na bajcie
+   864
+   865 548F C8			 iny
+   866 5490 8C 42 3B		 sty dli.round_2
+   867
+   868 				; dec dli.lives
+   869 5493 60			 rts
+   870
+   871
+   872 5494			_sk
+   873
+   874 5494 A2 00		 ldx #0
+   875
+   876 5496 EE 42 3B		 inc dli.round_2
+   877
+   878 5499 AD 42 3B		 lda dli.round_2
+   879 549C C9 0A		 cmp #10
+   880 549E D0 13		 bne _skp
+   881 54A0 8E 42 3B		 stx dli.round_2
+   882 54A3 EE 45 3A		 inc dli.round_1
+   883
+   884 54A6 AD 45 3A		 lda dli.round_1
+   885 54A9 C9 0A		 cmp #10
+   886 54AB D0 06		 bne _skp
+   887 54AD 8E 45 3A		 stx dli.round_1
+   888 54B0 EE 48 39		 inc dli.round_0
+   889
+   890 54B3			_skp
+   891
+   892 54B3 4C D2 57		 jmp setpmcol
+   893
+   894 54B6 00			lvl_count	brk
+   895
+   896 				.endp
+   897
+   898
+   899 				*--- MODYFIKACJA CZASU
+   900
+   901 54B7			.proc DEC_CLOCK
+   902
+   903 54B7 AD 3F 3C		 lda dli.clock_1
+   904 54BA 0D 3C 3D		 ora dli.clock_3
+   905 54BD 0D 55 3E		 ora dli.clock_4
+   906 54C0 8D 79 55		 sta notime+1
+   907 54C3 F0 27		 beq _skp
+   908 				 
+   909 54C5 CE 01 85		 dec second
+   910 54C8 D0 22		 bne _skp
+   911
+   912 54CA A9 32		_palntsc lda #50
+   913 54CC 8D 01 85		 sta second
+   914
+   915 54CF CE 55 3E		 dec dli.clock_4
+   916 54D2 AD 55 3E		 lda dli.clock_4
+   917 54D5 10 15		 bpl _skp
+   918 54D7 A9 09		 lda #9
+   919 54D9 8D 55 3E		 sta dli.clock_4
+   920 54DC CE 3C 3D		 dec dli.clock_3
+   921
+   922 54DF AD 3C 3D		 lda dli.clock_3
+   923 54E2 10 08		 bpl _skp
+   924 54E4 A9 05		 lda #5
+   925 54E6 8D 3C 3D		 sta dli.clock_3
+   926 54E9 CE 3F 3C		 dec dli.clock_1
+   927
+   928 54EC			_skp
+   929 54EC 60			 rts
+   930
+   931 				.endp
+   932
+   933
+   934 				/*******************************************************************************/
+   935 				/*                           TEST NOWEJ POZYCJI                                */
+   936 				/*******************************************************************************/
+   937
+   938 54ED			.proc _SRC_TEST
+   939
+   940 54ED A0 00		 ldy #0
+   941 54EF B1 80		 lda (src),y
+   942 54F1 C9 02		 cmp #murek
+   943 54F3 F0 12		 beq _def
+   944 54F5 C9 0E		 cmp #murek2
+   945 54F7 F0 0E		 beq _def 
+   946 54F9 C9 86		 cmp #ziarno
+   947 54FB F0 1A		 beq jedzenie
+   948
+   949 				; cmp #$c4
+   950 				; beq _ok
+   951 				; cmp #$c8
+   952 				; beq _ok
+   953 				; cmp #$cc
+   954 				; beq _ok
+   955 				; cmp #$d0
+   956 				; beq _ok
+   957
+   958 54FD C9 94		 cmp #chr+$80
+   959 54FF B0 2E		 bcs ouch
+   960
+   961 				/*
+   962 				 iny
+   963 				 lda (src),y
+   964 				 cmp #murek+1
+   965 				 beq _def
+   966 				 cmp #ziarno+1
+   967 				 beq jedzenie
+   968 				*/
+   968
+   969
+   970 5501 20 EC 50		 jsr _PUT_HEAD
+   971 5504 4C 72 53		 jmp _PUT_NIBBLY
+   972
+   973 5507			_def			; przywracamy poprzednia pozycje glowy robala
+   974 5507 A5 82 85 80 A5 83 +  mwa  srcOld  src
+   975 550F C6 88		 dec idx
+   976 5511 A9 00		_old_restore lda #0
+   977 5513 8D 08 4F		 sta _old+1
+   978 5516 60			 rts
+   979
+   980 5517			jedzenie
+   981 5517 A9 00		_eat lda #0
+   982 5519 18			 clc
+   983 551A 69 A3		 adc #ulamek
+   984 551C 8D 18 55		 sta _eat+1
+   985 551F 90 02		 scc
+   986 5521 E6 89		 inc len
+   987
+   988 5523 CE 0B 57		 dec _LEVEL.ile
+   989
+   990 5526 20 06 54		 jsr inc_punkty
+   991
+   992 5529 20 EC 50		 jsr _PUT_HEAD
+   993 552C 4C 72 53		 jmp _PUT_NIBBLY
+   994
+   995 552F			ouch			; zmniejszamy liczbe zyc i jesli osiagnie 0 to GAME OVER
+   996 552F CE 3D 38		 dec dli.lives
+   997 5532 AD 3D 38		 lda dli.lives
+   998 5535 F0 14		 beq gameover
+   999
+  1000 				 SID_RESTART #song3
+  1000 				 LDA# SONG3\ JSR SID_RESTART
+  1000 5537 A9 03		 LDA# SONG3
+  1000 5539 20 56 9F		 JSR SID_RESTART
+  1001
+  1002 				 TEXT #1
+  1002 				 LDX# 1\ JSR TEXT
+  1002 553C A2 01		 LDX# 1
+  1002 553E 20 7F 65		 JSR TEXT
+  1003
+  1004 				 SID_RESTART #song5
+  1004 				 LDA# SONG5\ JSR SID_RESTART
+  1004 5541 A9 05		 LDA# SONG5
+  1004 5543 20 56 9F		 JSR SID_RESTART
+  1005
+  1006 5546 68			 pla
+  1007 5547 68			 pla
+  1008 5548 4C E6 4D		 jmp restart
+  1009
+  1010
+  1011 554B			gameover
+  1012 				 SID_RESTART #song4
+  1012 				 LDA# SONG4\ JSR SID_RESTART
+  1012 554B A9 04		 LDA# SONG4
+  1012 554D 20 56 9F		 JSR SID_RESTART
+  1013
+  1014 				 TEXT #3
+  1014 				 LDX# 3\ JSR TEXT
+  1014 5550 A2 03		 LDX# 3
+  1014 5552 20 7F 65		 JSR TEXT
+  1015
+  1016 				 SID_RESTART #song5
+  1016 				 LDA# SONG5\ JSR SID_RESTART
+  1016 5555 A9 05		 LDA# SONG5
+  1016 5557 20 56 9F		 JSR SID_RESTART
+  1017
+  1018 555A 68			 pla
+  1019 555B 68			 pla
+  1020
+  1021 555C A9 FF 8D E4 84	 mva #$ff  msx_stop+1
+  1022 5561 8D 0E 8E		 sta black_skip		; omin wpisywanie wartosci 0 do rejestrow kolorow
+  1023
+  1024 5564 20 48 9F		 jsr sid_stop
+  1025
+  1026 5567 20 D2 57		 jsr setpmcol
+  1027 556A 20 06 BD		 jsr save_color
+  1028
+  1029 556D A9 00 8D 0E 8E	 mva #$00 black_skip	; ok, mozesz wpisywac wartosci 0 do rejestrow kolorow
+  1030
+  1031 5572 20 AC BC		 jsr fade_out
+  1032 5575 4C 0C 4D		 jmp _pal	;start
+  1033
+  1034 				.endp
+  1035
+  1036
+  1037 5578 A9 00		notime lda #0
+  1038 557A D0 21		 bne _skp
+  1039
+  1040 				 SID_RESTART #song3
+  1040 				 LDA# SONG3\ JSR SID_RESTART
+  1040 557C A9 03		 LDA# SONG3
+  1040 557E 20 56 9F		 JSR SID_RESTART
+  1041
+  1042 				 TEXT #2
+  1042 				 LDX# 2\ JSR TEXT
+  1042 5581 A2 02		 LDX# 2
+  1042 5583 20 7F 65		 JSR TEXT
+  1043
+  1044 				 WAIT #2
+  1044 				 LDX# 2\ JSR WAIT
+  1044 5586 A2 02		 LDX# 2
+  1044 5588 20 05 BC		 JSR WAIT
+  1045
+  1046 558B CE 3D 38		 dec dli.lives
+  1047 558E AD 3D 38		 lda dli.lives
+  1048 5591 F0 B8		 beq _SRC_TEST.gameover
+  1049
+  1050 				 SID_RESTART #song5
+  1050 				 LDA# SONG5\ JSR SID_RESTART
+  1050 5593 A9 05		 LDA# SONG5
+  1050 5595 20 56 9F		 JSR SID_RESTART
+  1051
+  1052 5598 68			 pla
+  1053 5599 68			 pla
+  1054 559A 4C E6 4D		 jmp restart
+  1055
+  1056 559D			_skp
+  1057 559D 60			 rts
+  1058
+  1059
+  1060 				*--- AKTUALIZACJA PANELU
+  1061
+  1062 				; w regX wartosc cyfry do wyswietlenia
+  1063
+  1064 				.macro UPDATE_PANEL
+  1065 				
+  1066 				; ldy #0
+  1067 				; lda cyfry,x
+  1068 				; sta panel+320+40*0,y
+  1069 				; ldy #40
+  1070 				; lda cyfry+10,x
+  1071 				; sta panel+320+40*1,y
+  1072 				
+  1073 				 lda cyfry+20,x
+  1074 				 sta panel+320+40*2,y
+  1075 				 lda cyfry+30,x
+  1076 				 sta panel+320+40*3,y
+  1077 				 lda cyfry+40,x
+  1078 				 sta panel+320+40*4,y
+  1079 				 lda cyfry+50,x
+  1080 				 sta panel+320+40*5,y
+  1081 				 lda cyfry+60,x
+  1082 				 sta panel+320+40*6,y
+  1083 				
+  1084 				; lda cyfry+70,x
+  1085 				; sta panel+320+40*7,y
+  1086 				
+  1087 				 iny
+  1088 				
+  1089 				.endm
+  1090
+  1091
+  1092 				/*******************************************************************************/
+  1093 				/*                 WSTAWIENIE NOWEGO KIERUNKU DO TABLICY                       */
+  1094 				/*******************************************************************************/
+  1095
+  1096 				.macro _ADD_RUCH
+  1097 				
+  1098 				 ldx idx
+  1099 				
+  1100 				 sta kier,x 
+  1101 				
+  1102 				 lda src	; w (scrOLD) zapamietujemy stara wartosc (SRC)
+  1103 				 sta srcOLD
+  1104 				 sta l_adr,x	; RUCH [ IDX ] = KIERUNEK
+  1105 				
+  1106 				 lda src+1
+  1107 				 sta srcOLD+1
+  1108 				 sta h_adr,x
+  1109 				
+  1110 				 inc idx	; IDX = IDX + 1
+  1111 				
+  1112 				.endm
+  1113
+  1114
+  1115 				*--- WSTAWIAMY KLOCKI ROBALA NA EKRAN (WSPOLNE ZNAKI DLA WSZYSTKICH ZESTAWOW)
+  1116
+  1117 559E			.proc _FIL_ROBAL		; sprawdzamy pole gry 36x18 znakow (18x9 klockow)
+  1118
+  1119 559E A9 7A 85 86 A9 C8 +  mwa #scr+3*@sw+2	_tmp	; w (_TMP) adres pamieci obrazu, lewy-gorny klocek
+  1120
+  1121 55A6 A2 09		 ldx #9
+  1122
+  1123 55A8			_lop
+  1124 55A8 A0 00		 ldy #0
+  1125 55AA			_lp
+  1126 55AA B1 86		 lda (_tmp),y
+  1127 55AC C9 94		 cmp #chr+$80
+  1128 55AE 90 1C		 bcc _cnt
+  1129
+  1130 55B0 8C CB 55		 sty y+1
+  1131
+  1132 55B3 A9 8A		 lda #robal
+  1133 55B5 91 86		 sta (_tmp),y
+  1134 55B7 C8			 iny
+  1135 55B8 09 01		 ora #1
+  1136 55BA 91 86		 sta (_tmp),y
+  1137
+  1138 55BC 98			 tya
+  1139 55BD 18 69 27		 add #@sw-1
+  1140 55C0 A8			 tay
+  1141
+  1142 55C1 A9 8C		 lda #robal+2
+  1143 55C3 91 86		 sta (_tmp),y
+  1144 55C5 C8			 iny
+  1145 55C6 09 01		 ora #1
+  1146 55C8 91 86		 sta (_tmp),y
+  1147
+  1148 55CA A0 00		y ldy #0
+  1149
+  1150 55CC			_cnt
+  1151 55CC C8			 iny
+  1152 55CD C8			 iny
+  1153 55CE C0 24		 cpy #36
+  1154 55D0 D0 D8		 bne _lp
+  1155
+  1156 55D2 A5 86		 lda _tmp
+  1157 55D4 18 69 50		 add #@sw*2
+  1158 55D7 85 86		 sta _tmp
+  1159 55D9 90 02		 scc
+  1160 55DB E6 87		 inc _tmp+1
+  1161
+  1162 55DD CA			 dex
+  1163 55DE D0 C8		 bne _lop
+  1164
+  1165 55E0 60			 rts
+  1166
+  1167 				.endp
+  1168
+  1169
+  1170 				/*******************************************************************************/
+  1171 				/*                  WYSWIETLENIE NOWEGO LEVELU                                 */
+  1172 				/*******************************************************************************/
+  1173
+  1174 55E1			.proc _LEVEL
+  1175
+  1176 				; mwa #scr  _tmp
+  1177 55E1 A9 00 85 84 A9 87 +  mwa #scr2 dst
+  1178
+  1179 				; lda #$ff		; dolna czarna kreska na poczatku pola gry
+  1180 				; ldy #@sw-1
+  1181 				; sta gorny_pasek,y-
+  1182 				; rpl
+  1183
+  1184 55E9 20 E5 56		 jsr add_dst
+  1185 				; jsr add_tmp
+  1186
+  1187
+  1188 55EC A9 0E		 lda #murek2		; pierwsze 2 linie murkiem2
+  1189 55EE 20 F1 56		 jsr fill_line
+  1190 55F1 A9 10		 lda #murek2+2
+  1191 55F3 20 F1 56		 jsr fill_line
+  1192
+  1193
+  1194 55F6 A2 09		 ldx #10-1		; wypelniamy ekran murkiem
+  1195 55F8			_lp
+  1196 55F8 A9 02		 lda #murek
+  1197 55FA 20 F1 56		 jsr fill_line
+  1198 55FD A9 04		 lda #murek+2
+  1199 55FF 20 F1 56		 jsr fill_line
+  1200 5602 CA			 dex
+  1201 5603 D0 F3		 bne _lp
+  1202
+  1203
+  1204 5605 A9 0E		 lda #murek2		; ostatnie 2 linie innym murkiem2
+  1205 5607 20 F1 56		 jsr fill_line
+  1206 560A A9 10		 lda #murek2+2
+  1207 560C 20 F1 56		 jsr fill_line
+  1208
+  1209
+  1210 560F A9 78 85 84 A9 87 +  mwa #scr2+@sw*3 dst	; teraz wstawiamy i liczymy "ziarna"
+  1211
+  1212 5617 AD 07 57 85 86 AD +  mwa adr _tmp
+  1213 				 
+  1214 5621 A0 00		 ldy #0
+  1215 5623 8C 0B 57		 sty ile
+  1216
+  1217 5626			_lop
+  1218 5626 A9 02		 lda #2
+  1219 5628 8D 0A 57		 sta ofs
+  1220
+  1221 562B B1 86		 lda (_tmp),y
+  1222 562D 20 8E 56		 jsr decode
+  1223 5630 C8			 iny
+  1224 5631 B1 86		 lda (_tmp),y
+  1225 5633 20 8E 56		 jsr decode
+  1226 5636 C8			 iny
+  1227 5637 B1 86		 lda (_tmp),y
+  1228 5639 20 8E 56		 jsr decode
+  1229
+  1230 563C 20 E5 56		 jsr add_dst
+  1231 563F 20 E5 56		 jsr add_dst 
+  1232 				 
+  1233 5642 C8			 iny
+  1234 5643 C0 1B		 cpy #9*3
+  1235 5645 D0 DF		 bne _lop
+  1236
+  1237
+  1238 				; lda #$ff		; gorna czarna kreska na dole pola gry
+  1239 				; ldy #@sw-1
+  1240 				; sta dolny_pasek,y-
+  1241 				; rpl
+  1242
+  1243
+  1244 5647 A5 8C C5 8C F0 FC	 lda:cmp:req gate
+  1245
+  1246 564D A9 00 8D 66 56 A9 +  mwa #scr2 cp0+1	; przepisujemy bufor ekranu SCR2 na ekran SCR
+  1247 5657 A9 00 8D 69 56 A9 +  mwa #scr  cp1+1
+  1248
+  1249 5661 A2 17		 ldx #11*2+1
+  1250 5663			lp
+  1251
+  1252 5663 A0 27		 ldy #40-1
+  1253 5665			___lp
+  1254 5665 B9 FF FF		cp0 lda $ffff,y
+  1255 5668 99 FF FF		cp1 sta $ffff,y
+  1256 566B 88			 dey
+  1257 566C 10 F7		 bpl ___lp
+  1258
+  1259 566E AD 66 56		 lda cp0+1
+  1260 5671 18			 clc
+  1261 5672 69 28		 adc #@sw
+  1262 5674 8D 66 56		 sta cp0+1
+  1263 5677 90 03		 scc
+  1264 5679 EE 67 56		 inc cp0+2
+  1265 				 
+  1266 567C AD 69 56		 lda cp1+1
+  1267 567F 18			 clc
+  1268 5680 69 28		 adc #@sw
+  1269 5682 8D 69 56		 sta cp1+1
+  1270 5685 90 03		 scc
+  1271 5687 EE 6A 56		 inc cp1+2
+  1272
+  1273 568A CA			 dex
+  1274 568B D0 D6		 bne lp
+  1275
+  1276 568D 60			 rts
+  1277
+  1278
+  1279 568E			DECODE			; dekoduj ziarna
+  1280 568E 8C B9 56		 sty rY+1
+  1281 5691 8D 9C 56		 sta bajt+1
+  1282
+  1283 5694 A9 80		 lda #$80
+  1284 5696 8D 09 57		 sta _bit
+  1285 				 
+  1286 5699 A0 07		 ldy #7
+  1287
+  1288 569B A9 00		bajt lda #0
+  1289 569D 2D 09 57		 and _bit
+  1290 56A0 D0 0A		 bne _skp
+  1291 				 
+  1292 56A2 AD 0A 57		 lda ofs
+  1293 56A5 C9 26		 cmp #38
+  1294 56A7 F0 0F		 beq rY
+  1295 				 
+  1296 56A9 20 BB 56		 jsr put_ziarno
+  1297 				 
+  1298 56AC			_skp
+  1299 56AC 4E 09 57		 lsr _bit
+  1300 				 
+  1301 56AF EE 0A 57		 inc ofs
+  1302 56B2 EE 0A 57		 inc ofs
+  1303 				 
+  1304 56B5			_sk
+  1305 56B5 88			 dey
+  1306 56B6 10 E3		 bpl bajt
+  1307 				 
+  1308 56B8 A0 00		rY ldy #0
+  1309 56BA 60			 rts
+  1310
+  1311
+  1312 56BB			PUT_ZIARNO		; postaw ziarno na ekranie
+  1313 56BB 8C E3 56		 sty regY+1
+  1314 				 
+  1315 56BE AC 0A 57		 ldy ofs
+  1316 56C1 A9 86		 lda #ziarno
+  1317 56C3 91 84		 sta (dst),y
+  1318 56C5 C8			 iny
+  1319 56C6 09 01		 ora #1
+  1320 56C8 91 84		 sta (dst),y
+  1321
+  1322 56CA AD 0A 57		 lda ofs
+  1323 56CD 18			 clc
+  1324 56CE 69 28		 adc #@sw
+  1325 56D0 A8			 tay
+  1326 56D1 A9 88		 lda #ziarno+2
+  1327 56D3 91 84		 sta (dst),y
+  1328 56D5 C8			 iny
+  1329 56D6 09 01		 ora #1
+  1330 56D8 91 84		 sta (dst),y
+  1331
+  1332 56DA EE 0B 57 D0 03 EE +  inw ile
+  1333
+  1334 56E2 A0 00		regY ldy #0
+  1335 56E4 60			 rts
+  1336 				 
+  1337
+  1338 56E5			ADD_DST
+  1339 56E5 A5 84		 lda dst
+  1340 56E7 18			 clc
+  1341 56E8 69 28		 adc #@sw
+  1342 56EA 85 84		 sta dst
+  1343 56EC 90 02		 scc
+  1344 56EE E6 85		 inc dst+1
+  1345 56F0 60			 rts
+  1346
+  1347
+  1348 56F1			FILL_LINE		; wypelniamy linie dwoma znakami
+  1349 56F1 8D F7 56		 sta _fil+1
+  1350
+  1351 56F4 A0 00		 ldy #0
+  1352 56F6 A9 00		_fil lda #0
+  1353 56F8 91 84		 sta (dst),y
+  1354 				; sta (_tmp),y
+  1355 56FA C8			 iny
+  1356 56FB 09 01		 ora #1
+  1357 56FD 91 84		 sta (dst),y
+  1358 				; sta (_tmp),y
+  1359 56FF C8			 iny
+  1360 5700 C0 28		 cpy #@sw
+  1361 5702 D0 F2		 bne _fil
+  1362
+  1363 				; jsr add_tmp
+  1364 5704 4C E5 56		 jmp add_dst
+  1365
+  1366 5707 F3 5A		adr	dta a(levels)
+  1367 5709 00			_bit	brk
+  1368 570A 00			ofs	brk
+  1369 570B 00			ile	brk
+  1370
+  1371 				.endp
+  1372
+  1373
+  1374 				*--- NMI
+  1375
+  1376 570C			nmi
+  1377 570C 8D CC 57		 sta rA+1
+  1378 570F 8E CE 57		 stx rX+1
+  1379 5712 8C D0 57		 sty rY+1
+  1380
+  1381 5715 2C 0F D4		 bit $d40f
+  1382 5718 10 03		 bpl vbl
+  1383
+  1384 571A 4C CB 57		vdli jmp nmiQ
+  1385
+  1386 571D			vbl
+  1387 571D 8D 0F D4		 sta $d40f
+  1388
+  1389 5720 E6 14		 inc cloc
+  1390
+  1391 5722 A9 00 8D 02 D4 A9 +  mwa #ant $d402
+  1392
+  1393 572C A9 3E 8D 00 D4	 mva #scr40 $d400
+  1394
+  1395
+  1396 5731 A9 00		_fn lda #0
+  1397 5733 29 07		 and #7
+  1398 5735 A8			 tay
+  1399 5736 B9 E7 6A		_fnt lda d_fnt,y
+  1400 5739 8D 2A 3E		 sta dli.f0+1
+  1401 573C EA EA		_fntG :2 nop
+  1402 573E 8D 18 44		 sta dli.f1+1
+  1403 5741 8D 09 D4		 sta chbase
+  1404
+  1405
+  1406 5744 A9 B4		c0 lda #$B4
+  1407 5746 8D 1A D0		 sta colbak
+  1408 5749 A9 00		c1 lda #$00
+  1409 574B 8D 16 D0		 sta color0
+  1410 574E A9 0A		c2 lda #$0a
+  1411 5750 8D 17 D0		 sta color1
+  1412 5753 A9 C8		c3 lda #$c8
+  1413 5755 8D 18 D0		 sta color2
+  1414 5758 A9 F8		c4 lda #$F8
+  1415 575A 8D 19 D0		 sta color3
+  1416
+  1417 575D A9 04		 lda #$04
+  1418 575F 8D 1B D0		 sta gtictl
+  1419
+  1420 5762 A9 03		 lda #$03
+  1421 5764 8D 0A D0		 sta sizep2
+  1422 5767 8D 0B D0		 sta sizep3
+  1423
+  1424 576A A9 03		hsiz lda #$03		; szerokosc glowy
+  1425 576C 8D 08 D0		 sta sizep0
+  1426 576F 8D 09 D0		 sta sizep1
+  1427
+  1428 5772 A9 EA		c7 lda #$EA		; kolor glowy
+  1429 5774 8D 12 D0		 sta colpm0
+  1430 5777 A9 EA		c8 lda #$EA
+  1431 5779 8D 13 D0		 sta colpm1
+  1432 				 
+  1433 577C A9 FF		 lda #$ff
+  1434 577E 8D 0C D0		 sta sizem 
+  1435
+  1436 5781 A9 00		spr0 lda #$00		; pozycja glowy
+  1437 5783 8D 00 D0		 sta hposp0
+  1438 5786 A9 00		spr1 lda #$00
+  1439 5788 8D 01 D0		 sta hposp1
+  1440 578B A9 00		mis0 lda #$00
+  1441 578D 8D 04 D0		 sta hposm0
+  1442 5790 A9 00		mis1 lda #$00
+  1443 5792 8D 05 D0		 sta hposm1 
+  1444
+  1445 5795 A9 30		 lda #$30
+  1446 5797 8D 02 D0		 sta hposp2
+  1447 579A A9 50		 lda #$50
+  1448 579C 8D 03 D0		 sta hposp3
+  1449
+  1450 				; lda #$50
+  1451 579F 8D 07 D0		 sta hposm3
+  1452
+  1453 57A2 A9 0A		c5 lda #$0A
+  1454 57A4 8D 14 D0		 sta colpm2
+  1455 57A7 8D 15 D0		 sta colpm3
+  1456 				 
+  1457 57AA A9 78		 lda #$78
+  1458 57AC 8D 06 D0		 sta hposm2
+  1459
+  1460 57AF A9 2A 8D 1B 57 A9 +  mwa #dli.dli0 vdli+1
+  1461
+  1462
+  1463 57B9 20 E3 84			jsr msx_stop
+  1464
+  1465 57BC AD 00 D3		 lda $d300
+  1466 57BF 29 0F		 and #$0f
+  1467 57C1 8D 01 4F		 sta r_d300+1
+  1468
+  1469 57C4 A9 FF		zegar lda #$ff
+  1470 57C6 D0 03		 sne
+  1471 57C8 20 B7 54		 jsr dec_clock
+  1472
+  1473 57CB			nmiQ
+  1474 57CB A9 00		rA lda #0
+  1475 57CD A2 00		rX ldx #0
+  1476 57CF A0 00		rY ldy #0
+  1477 57D1 40			 rti
+  1478
+  1479
+  1480 				*--- USTAWIAMY KOLORY POLA GRY (PM2, PM3)
+  1481
+  1482 57D2			.proc setpmcol
+  1483
+  1484 57D2 AD 0A D2		 lda $d20a
+  1485 57D5 4A 4A 4A 4A		 :4 lsr @
+  1486 57D9 A8			 tay
+  1487
+  1488 57DA			_lp
+  1489
+  1490 57DA B9 E6 8D		 lda l_pal,y
+  1491 57DD C9 FF		old cmp #$ff
+  1492 57DF D0 08		 bne _ok
+  1493
+  1494 57E1 C8			 iny
+  1495 57E2 98			 tya
+  1496 57E3 29 0F		 and #$f
+  1497 57E5 A8			 tay
+  1498 57E6 4C DA 57		 jmp _lp
+  1499
+  1500 57E9			_ok
+  1501 57E9 B9 E6 8D		 lda l_pal,y
+  1502 57EC 8D DE 57		 sta old+1
+  1503 57EF 85 84		 sta :dst
+  1504 57F1 B9 FA 8D		 lda h_pal,y
+  1505 57F4 85 85		 sta :dst+1
+  1506
+  1507 57F6 A9 16		 lda #22
+  1508 57F8 8D 63 58		 sta max+1
+  1509
+  1510 57FB A0 00		 ldy #0		; kolory pm2, pm3 (podkolorowuja klocki)
+  1511 57FD B1 84		 lda (:dst),y
+  1512 57FF 20 4F 58		 jsr _setpm
+  1513
+  1514 5802 A9 17		 lda #22+1
+  1515 5804 8D 63 58		 sta max+1
+  1516 5807 A0 01		 ldy #1
+  1517 5809 B1 84		 lda (:dst),y
+  1518 580B 20 4F 58		 jsr _setpm
+  1519
+  1520 580E A0 02		 ldy #2		; kolor pola gry
+  1521 5810 B1 84		 lda (:dst),y
+  1522 5812 8D 45 57		 sta c0+1
+  1523 5815 8D A3 4A		 sta dli._c3+1
+  1524 5818 8D D1 4A		 sta dli._c4+1
+  1525 581B 8D 74 4C		 sta dli._c5+1
+  1526 581E 8D A0 4C		 sta dli._c6+1
+  1527 5821 8D CC 4C		 sta dli._c7+1
+  1528 5824 C8			 iny
+  1529 5825 B1 84		 lda (:dst),y
+  1530 5827 8D 54 57		 sta c3+1
+  1531 582A C8			 iny
+  1532 582B B1 84		 lda (:dst),y
+  1533 582D 8D 59 57		 sta c4+1
+  1534
+  1535 5830 C8			 iny		; kolory panelu
+  1536 5831 B1 84		 lda (:dst),y
+  1537 5833 8D 3B 4A		 sta dli.p0+1
+  1538 5836 C8			 iny
+  1539 5837 B1 84		 lda (:dst),y
+  1540 5839 8D 49 4A		 sta dli.p1+1
+  1541 583C 8D CC 4A		 sta dli.p2+1
+  1542 583F 8D 4E 4C		 sta dli.p3+1
+  1543 5842 8D 7E 4C		 sta dli.p4+1
+  1544 5845 8D AA 4C		 sta dli.p5+1
+  1545
+  1546 5848 C8			 iny
+  1547 5849 B1 84		 lda (:dst),y
+  1548 584B 8D A1 66		 sta TEXT.napCol+1
+  1549
+  1550 584E 60			 rts
+  1551
+  1552 584F			_setpm
+  1553 584F BE 90 8D		 ldx l_tcol,y
+  1554 5852 8E 5E 58		 stx dst+1
+  1555 5855 BE A7 8D		 ldx h_tcol,y
+  1556 5858 8E 5F 58		 stx dst+2
+  1557
+  1558 585B A2 01		 ldx #1
+  1559 585D 9D FF FF		dst sta $ffff,x
+  1560
+  1561 5860 C8			 iny
+  1562 5861 C8			 iny
+  1563 5862 C0 00		max cpy #0
+  1564 5864 D0 E9		 bne _setpm
+  1565 5866 60			 rts
+  1566
+  1567 				.endp
+  1568
+  1569
+  1570 				*--- CRC 16
+  1571 				; first initialize (CRC) = $FFFF
+  1572
+  1573 5867			.PROC CRC16
+  1574
+  1575 5867			MAKECRCTABLE
+  1576 5867 A2 00		         LDX #0          ; X counts from 0 to 255
+  1577 5869 A9 00		BYTELOOP LDA #0          ; A contains the low 8 bits of the CRC-16
+  1578 586B 8E DB 58		         STX CRC         ; and CRC contains the high 8 bits
+  1579 586E A0 08		         LDY #8          ; Y counts bits in a byte
+  1580 5870 0A			BITLOOP  ASL @
+  1581 5871 2E DB 58		         ROL CRC         ; Shift CRC left
+  1582 5874 90 0C		         BCC NOADD       ; Do nothing if no overflow
+  1583 5876 49 21		         EOR #$21        ; else add CRC-16 polynomial $1021
+  1584 5878 48			         PHA             ; Save low byte
+  1585 5879 AD DB 58		         LDA CRC         ; Do high byte
+  1586 587C 49 10		         EOR #$10
+  1587 587E 8D DB 58		         STA CRC
+  1588 5881 68			         PLA             ; Restore low byte
+  1589 5882 88			NOADD    DEY
+  1590 5883 D0 EB		         BNE BITLOOP     ; Do next bit
+  1591 5885 9D DD 58		         STA CRCLO,X     ; Save CRC into table, low byte
+  1592 5888 AD DB 58		         LDA CRC         ; then high byte
+  1593 588B 9D DD 59		         STA CRCHI,X
+  1594 588E E8			         INX
+  1595 588F D0 D8		         BNE BYTELOOP    ; Do next byte
+  1596 5891 60			         RTS
+  1597
+  1598 5892			calc	
+  1599 5892 A9 FF 8D DB 58 8D +  mwa #$FFFF CRC
+  1600
+  1601 589A AD 07 57 8D A9 58 +  mwa _LEVEL.adr  data+1
+  1602
+  1603 58A6 A0 1B		 ldy #27
+  1604 58A8			_lp
+  1605 58A8 B9 FF FF		data lda $FFFF,y
+  1606 58AB 20 C4 58		 jsr UPDCRC
+  1607 58AE 88			 dey
+  1608 58AF 10 F7		 bpl _lp
+  1609
+  1610 58B1 AD DB 58 8D D8 58	 mva CRC	NEWCRC
+  1611 58B7 AD B6 54 8D D9 58	 mva INC_ROUND.lvl_count	NEWCRC+1
+  1612 58BD AD DC 58 8D DA 58	 mva CRC+1	NEWCRC+2
+  1613
+  1614 58C3 60			 rts
+  1615
+  1616
+  1617 58C4 4D DC 58		UPDCRC   EOR CRC+1       ; Quick CRC computation with lookup tables
+  1618 58C7 AA			         TAX
+  1619 58C8 AD DB 58		         LDA CRC
+  1620 58CB 5D DD 59		         EOR CRCHI,X
+  1621 58CE 8D DC 58		         STA CRC+1
+  1622 58D1 BD DD 58		         LDA CRCLO,X
+  1623 58D4 8D DB 58		         STA CRC
+  1624 58D7 60			         RTS
+  1625
+  1626 				.endp
+  1627
+  1628 = 58D8			NEWCRC	 .ds 3
+  1629 = 58DB			CRC      .ds 2
+  1630 = 58DD			CRCLO    .ds $100
+  1631 = 59DD			CRCHI    .ds $100
+  1632
+  1633
+  1634
+  1635 				* --- EKRAN "CONGRATULATIONS"
+  1636
+  1637 5ADD			.proc CONGRATULATIONS
+  1638
+  1639 				 INFLATE	#nibbly_grat	,	#fntCon
+  1639 				 MWA #NIBBLY_GRAT INPUTPOINTER\ MWA #FNTCON OUTPUTPOINTER\ JSR INFLATE
+  1639 5ADD-8501> A9 54 85 E0 +  MWA #NIBBLY_GRAT INPUTPOINTER
+  1639 5AE5 A9 00 85 E2 A9 D8 +  MWA #FNTCON OUTPUTPOINTER
+  1639 5AED 20 00 FC		 JSR INFLATE
+  1640
+  1641 5AF0 4C B7 17		 jmp congrat_main
+  1642
+  1643 				.endp
+  1644
+  1645
+  1646 				* --- LEVELS
+  1647
+  1648 5AF3			levels
+  1649 5AF3 00 00 00 7F FF 80 +  ins 'levels\levels.dat'
+  1650
+  1651
+  1652 				* --- PROCEDURY I DANE DLA NAPISOW
+  1653
+  1654 657F 8E C2 65 A0 00 A9 +  .link 'napisy.obx'
+  1655
+  1656
+  1657 84E3 A9 FF		msx_stop lda #$ff
+  1658 84E5 D0 15		 bne skip_emulator
+  1659
+  1660 84E7 A9 00		fps	lda #0
+  1661 84E9 C9 06			cmp #6
+  1662 84EB D0 0C			bne skip_emu
+  1663
+  1664 84ED A9 00 8D E8 84		mva #0 fps+1
+  1665
+  1666 84F2 AD F1 4D			lda _palntsc+1
+  1667 84F5 C9 3C			cmp #60
+  1668 84F7 F0 03			beq skip_emulator	
+  1669
+  1670 84F9			skip_emu
+  1671
+  1672 84F9 20 46 98			jsr emulator		; gra SID PLAYER
+  1673
+  1674 84FC			skip_emulator
+  1675
+  1676 84FC EE E8 84			inc fps+1
+  1677
+  1678 84FF 60				rts
+  1679
+  1680
+  1681 				* --- VARIABLES
+  1682
+  1683 8500 00			joy_delay	brk
+  1684 8501 00			second		brk
+  1685
+  1686 				;@null		.ds 80		; bufor na ogon robala
+  1687
+  1688 8502				.align
+  1689
+  1690 = 8600			kier		.ds 256
+  1691
+  1692 = 8700			scr2		.ds $400	; bufor ekranu
+  1693
+  1694
+  1695 8B00			.array ofset [256] .byte = robal
+  1696  [0007] 94		 [@right] = phaseidx.@rr+chr+$80
+  1697  [000B] 98		 [@left]  = phaseidx.@ll+chr+$80
+  1698  [000E] C0		 [@up]    = phaseidx.@uu+chr+$80
+  1699  [000D] BC		 [@down]  = phaseidx.@dd+chr+$80
+  1700
+  1701  [0017] C4		 [@right+16] = phaseidx.@right+chr+$80
+  1702  [001B] C8		 [@left+16]  = phaseidx.@left+chr+$80
+  1703  [001E] CC		 [@up+16]    = phaseidx.@up+chr+$80
+  1704  [001D] D0		 [@down+16]  = phaseidx.@down+chr+$80
+  1705 				 
+  1706  [0077] 94		 [@rr]	= phaseidx.@rr+chr+$80
+  1707  [00BB] 98		 [@ll]	= phaseidx.@ll+chr+$80
+  1708  [00DB] 9C		 [@dl]	= phaseidx.@dl+chr+$80
+  1709  [00D7] A0		 [@dr]	= phaseidx.@dr+chr+$80
+  1710  [00EB] AC		 [@ul]	= phaseidx.@ul+chr+$80
+  1711  [00E7] B0		 [@ur]	= phaseidx.@ur+chr+$80
+  1712  [00BD] B4		 [@ld]	= phaseidx.@ld+chr+$80
+  1713  [00BE] B8		 [@lu]	= phaseidx.@lu+chr+$80
+  1714  [007D] A4		 [@rd]	= phaseidx.@rd+chr+$80
+  1715  [007E] A8		 [@ru]	= phaseidx.@ru+chr+$80
+  1716  [00DD] BC		 [@dd]	= phaseidx.@dd+chr+$80
+  1717  [00EE] C0		 [@uu]	= phaseidx.@uu+chr+$80
+  1718 				.enda 
+  1719
+  1720
+  1721 8C00			.array tst_skip [256] .byte = $FF
+  1722  [0077] 00		 [@rr]	= 0
+  1723  [00BB] 00		 [@ll]	= 0
+  1724  [00DD] 00		 [@dd]	= 0
+  1725  [00EE] 00		 [@uu]	= 0
+  1726 				.enda
+  1727
+  1728
+  1729 8D00 FF FF FF FF FF FF + cyfry	:8 ins 'panel\panel_2.raw',0+#*40,10
+  1730
+  1731
+  1732 8D50			.array _lsh4 [16] .byte
+  1733  [0007] 70		 [@right] = @right<<4
+  1734  [000B] B0		 [@left ] = @left<<4
+  1735  [000E] E0		 [@up   ] = @up<<4
+  1736  [000D] D0		 [@down ] = @down<<4
+  1737 				.enda
+  1738
+  1739
+  1740 8D60			.array l_adr_joy [16] .byte = <_joy_nil
+  1741  [0007] 08		 [@right] = <_rg
+  1742  [000B] 3D		 [@left ] = <_lf
+  1743  [000E] 76		 [@up   ] = <_up
+  1744  [000D] AA		 [@down ] = <_dw
+  1745 				.enda
+  1746
+  1747
+  1748 8D70			.array l_adr_head [16] .byte
+  1749  [0007] D6		 [@right] = <_PUT_HEAD._rg
+  1750  [000B] 3A		 [@left ] = <_PUT_HEAD._lf
+  1751  [000E] BA		 [@up   ] = <_PUT_HEAD._up
+  1752  [000D] 3A		 [@down ] = <_PUT_HEAD._dw
+  1753 				.enda
+  1754
+  1755
+  1756 8D80			.array h_adr_head [16] .byte
+  1757  [0007] 52		 [@right] = >_PUT_HEAD._rg
+  1758  [000B] 52		 [@left ] = >_PUT_HEAD._lf
+  1759  [000E] 51		 [@up   ] = >_PUT_HEAD._up
+  1760  [000D] 51		 [@down ] = >_PUT_HEAD._dw
+  1761 				.enda
+  1762
+  1763
+  1764
+  1765 				* --- TABLICA ADRESOW KOLOROW DLA POLA GRY
+  1766
+  1767 8D90			l_tcol
+  1768 8D90 4E 2A A2 38 35 32 +  dta l(c2,dli._c0,c5,dli.c13,dli.c15,dli.c17,dli.c19)				; 22 b
+  1769 8D97 2C 2D 26 23 20	 dta l(dli.c21,dli.c23,dli.c25,dli.c27,dli.c29)
+  1770 8D9C 1D 1A 1B 25 22	 dta l(dli.c31,dli.c33,dli.c35,dli.c37,dli.c39)
+  1771 8DA1 1F 1C 19 16 2A 00	 dta l(dli.c41,dli.c43,dli.c45,dli._c1,dli._c2, txt_temp)
+  1772
+  1773 8DA7			h_tcol
+  1774 8DA7 57 38 57 39 3A 3B +  dta h(c2,dli._c0,c5,dli.c13,dli.c15,dli.c17,dli.c19)				; 22 b
+  1775 8DAE 3D 3E 3F 40 41	 dta h(dli.c21,dli.c23,dli.c25,dli.c27,dli.c29)
+  1776 8DB3 42 43 44 45 46	 dta h(dli.c31,dli.c33,dli.c35,dli.c37,dli.c39)
+  1777 8DB8 47 48 49 4A 4A C0	 dta h(dli.c41,dli.c43,dli.c45,dli._c1,dli._c2, txt_temp)
+  1778
+  1779
+  1780 				* --- COLOR PALETTE (pm0,pm1, bak,col2,col3, panel_col0,panel_col1, pm0+pm1)
+  1781
+  1782 8DBE 0A 74 B4 C8 F8 24 + palette0	dta b($0a,$74, $b4,$c8,$f8, $24,$28, $ea)
+  1783 8DC6 0A 44 74 58 B8 14 + palette1	dta b($0a,$44, $74,$58,$b8, $14,$78, $dc)
+  1784 8DCE 0A 74 24 18 08 04 + palette2	dta b($0a,$74, $24,$18,$08, $04,$e8, $0a)
+  1785 8DD6 0A 04 44 68 F8 04 + palette3	dta b($0a,$04, $44,$68,$f8, $04,$b8, $1a)
+  1786 8DDE 0A 04 14 D8 08 74 + palette4	dta b($0a,$04, $14,$d8,$08, $74,$98, $1c)
+  1787
+  1788 8DE6 BE C6 CE D6 DE BE + l_pal :4 dta l(palette0, palette1, palette2, palette3, palette4)
+  1789 8DFA 8D 8D 8D 8D 8D 8D + h_pal :4 dta h(palette0, palette1, palette2, palette3, palette4)
+  1790
+  1791 8E0E 00			black_skip	brk
+  1792
+  1793
+  1794 				 .print 'Program: ',prg,'..',*,' (',$9000-*,' bytes free)'
+  1794 				Program: $3400..$8E0F ($01F1 bytes free)
+  1795
+  1796 				 ift *>$9000
+  1797 				  ert 'Adress > $9000'
+  1798 				 eif
+  1799
+  1800
+  1801 				* --- SID2POKEY
+  1802
+  1803 9000-9F5B> FF FF C8 A4 +  .link 'msx\sid2pokey.obx'
+  1804
+  1805
+  1806 				* --- PACKED DATA #1
+  1807
+  1808 9F5C			 org sid_end+1		; obszar pamieci za modulem SID
+  1809
+  1810 B81F			nibbly_fnt
+  1811 B81F-BDCB> EC 93 31 4B +  ins 'all_fnt.def'
+  1812
+  1813 BBBD			nibbly_pmg
+  1814 BBBD 63 A0 15 60 E4 62 +  ins 'pmg.def'
+  1815
+  1816
+  1817 BC05 A5 14 C5 14 F0 FC +  .link 'title\title_fade.obx'
+  1818
+  1819
+  1820 				* --- tworzenie tablic L_TCOL2, H_TCOL2 z etykietami zaczynajacymi sie na C?, DLI.C?, DLI._C?, DLI.P? 
+  1821
+  1822 = 0000			 ?colcnt = 0
+  1823
+  1824 BD77 44 57 2A 38 3A 4A +  :50 labels <#		; szukamy etykiet wystepujacych w programie
+  1825
+  1826
+  1827 BD77			l_tcol2
+  1828 BD77 44 2A 3A 49 16 48 +  .sav [$000] ?colcnt
+  1829 				 
+  1830 BDA1			h_tcol2
+  1831 BDA1 57 38 4A 57 4A 4A +  .sav [$100] ?colcnt
+  1832
+  1833 				; .print ' Colors: ',?colcnt
+  1834
+  1835 BDCB 2A			color_nr	dta b(?colcnt)
+  1836 = BDCC			t_satur2	.ds ?colcnt
+  1837 = BDF6			t_color2	.ds ?colcnt
+  1838
+  1839
+  1840 BE20-BE28> 2A		__color_nr	dta b(?colcnt)
+  1841 BE21 77 BD		__l_tcol	dta a(l_tcol2)
+  1842 BE23 A1 BD		__h_tcol	dta a(h_tcol2)
+  1843 BE25 CC BD		__t_satur	dta a(t_satur2)
+  1844 BE27 F6 BD		__t_color	dta a(t_color2)
+  1845
+  1846
+  1847 				 .print '   Free: ',*,'..$BFFF (',$C000-*,' bytes free)'
+  1847 				   Free: $BE29..$BFFF ($01D7 bytes free)
+  1848
+  1849 				 ift *>$BFFF
+  1850 				  ert 'Adress > $BFFF'
+  1851 				 eif
+  1852
+  1853
+  1854 				* --- TITLE
+  1855
+  1856 BE29			 org prgTitle
+  1857
+  1858 1000			.local
+  1859 1000-102C> A2 04		 ldx #4
+  1860
+  1861 1002			_lop
+  1862 1002 A5 14 C5 14 F0 FC	 lda:cmp:req 20
+  1863
+  1864 1008 A0 02		 ldy #2
+  1865 100A			_lp
+  1866 100A B9 C4 02		 lda 708,y
+  1867 100D F0 09		 beq __q
+  1868
+  1869 100F B9 C4 02		 lda 708,y
+  1870 1012 38 E9 02		 sub #$02
+  1871 1015 99 C4 02		 sta 708,y
+  1872
+  1873 1018			__q
+  1874 1018 AD C5 02 8D C8 02	 mva 709 712
+  1875 				 
+  1876 101E 88			 dey
+  1877 101F 10 E9		 bpl _lp
+  1878
+  1879 1021 CA			 dex
+  1880 1022 D0 DE		 bne _lop
+  1881
+  1882 1024 A9 00 8D 00 D4	 mva #0 $d400
+  1883 1029 8D 2F 02		 sta 559
+  1884 102C 60			 rts
+  1885
+  1886 				.end
+  1887
+  1888 02E2-02E3> 00 10		 ini prgTitle
+  1889
+  1890
+  1891 102D			 org prgTitle
+  1892
+  1893 1000-300D> 70 F0 4E 00 +  .link 'title_2\title_2.obx'
+  1894 1618 A9 FF 8D 09 D2 A9 +  .link 'title_2\input_string.obx'
+  1895
+  1896 1798 70 70 F0 44 00 E0 +  .link 'congrat\grat_OK.obx'
+  1897
+  1898
+  1899 1BAA			nibbly_logo
+  1900 1BAA E4 52 35 98 13 41 +  ins 'packed_data.def'
+  1901
+  1902 2854			nibbly_grat
+  1903 2854 54 93 41 4C DB 66 +  ins 'packed_grat.def'
+  1904
+  1905
+  1906 				 .print '  Title: ',prgTitle,'..',*,' (',prg-*,' bytes free)'
+  1906 				  Title: $1000..$300E ($03F2 bytes free)
+  1907
+  1908
+  1909 				* --- START
+  1910
+  1911 02E0-02E1> F7 4C		 run main
+  1912
+  1913
+  1914 				* --- MACROS
