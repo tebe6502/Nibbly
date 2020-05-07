@@ -1,0 +1,147 @@
+mads 2.1.0 build 8 (23 Dec 19)
+Source: D:\github\logo\logo3.asm
+     1
+     2
+     3 = 1000			prg	= $1000
+     4
+     5 = D800			pmg	= $d800
+     6
+     7 = D409			chbase	= $D409
+     8
+     9 = 003F			scr48	equ %00111111	;screen 48b
+    10 = 003E			scr40	equ %00111110	;screen 40b
+    11 = 003D			scr32	equ %00111101	;screen 32b
+    12
+    13 				*--------------------------------
+    14
+    15 					.public a1, a2, intro, intro_org
+    16
+    17
+    18 				 org prg + $40
+    19
+    20 				intro_org
+    21
+    22
+    23 FFFF> 1040-1FD9> 00 00 + s1	ins 'logo1.dat'
+    24 17C0 00 00 00 00 00 19 + s2	ins 'logo2.dat'
+    25
+    26
+    27 1F40			a1
+    28 1F40 30 70 70		 dta $30,$70,$70
+    29 1F43 4E 40 10		 dta $4e,a(s1)
+    30 1F46 0E 0E 0E 0E 0E 0E +  :47 dta $e
+    31 1F75 70 70		 dta $70,$70
+    32 1F77 42 F0 21 02 70 02 +  dta $42,a(txt),$02,$70,$02,$02,$70,$02,$02,$70,$02,$02,$70,$70,$02,$02,$02,$02
+    33 				; dta $70,$f0
+    34 				; dta $44,a(scr)
+    35 				; :6 dta 4
+    36 1F8A 41 8D 1F		 dta $41,a(a2)
+    37
+    38 1F8D			a2
+    39 1F8D 30 70 70		 dta $30,$70,$70
+    40 1F90 4E C0 17		 dta $4e,a(s2)
+    41 1F93 0E 0E 0E 0E 0E 0E +  :47 dta $e
+    42 1FC2 70 70		 dta $70,$70
+    43 1FC4 42 F0 21 02 70 02 +  dta $42,a(txt),$02,$70,$02,$02,$70,$02,$02,$70,$02,$02,$70,$70,$02,$02,$02,$02
+    44 				; dta $70,$f0
+    45 				; dta $44,a(scr)
+    46 				; :6 dta 4
+    47 1FD7 41 40 1F		 dta $41,a(a1)
+    48
+    49
+    50 1FDA			.align $0400
+    51
+    52 2000-244A> 00 00 00 00 + fnt	ins 'logo3.fnt',0,62*8
+    53 21F0 80 80 80 80 80 80 + txt	ins 'logo3.scr'*
+    54
+    55
+    56 23D0			intro
+    57
+    58 23D0 A0 04		 ldy #4
+    59 23D2			_cut
+    60 23D2 B9 C4 02		 lda 708,y
+    61 23D5 29 0F		 and #$0f
+    62 23D7 99 C4 02		 sta 708,y
+    63 23DA 88			 dey
+    64 23DB 10 F5		 bpl _cut
+    65
+    66 23DD A5 14 C5 14 F0 FC	 lda:cmp:req 20
+    67
+    68
+    69 23E3 A2 0F		 ldx #15
+    70
+    71 23E5			_lop
+    72 23E5 A5 14 C5 14 F0 FC	 lda:cmp:req 20
+    73 23EB A5 14 C5 14 F0 FC	 lda:cmp:req 20
+    74
+    75 23F1 A0 02		 ldy #2
+    76 23F3			_lp
+    77 23F3 B9 C4 02		 lda 708,y
+    78 23F6 F0 09		 beq __q
+    79
+    80 23F8 B9 C4 02		 lda 708,y
+    81 23FB 38 E9 02		 sub #$02
+    82 23FE 99 C4 02		 sta 708,y
+    83
+    84 2401			__q
+    85 2401 88			 dey
+    86 2402 10 EF		 bpl _lp
+    87
+    88 2404 CA			 dex
+    89 2405 D0 DE		 bne _lop
+    90
+    91
+    92 2407 A9 00		 lda #0
+    93 2409 A0 04		 ldy #4
+    94 240B 99 C4 02 88		 sta 708,y-
+    95 240F 10 FA		 rpl
+    96
+    97 2411 A9 40 8D 30 02 A9 +  mwa #a1 560
+    98 241B A9 20 8D F4 02	 mva >fnt 756
+    99
+   100
+   101 2420			.local
+   102 2420 A2 04		 ldx #4
+   103
+   104 2422			_lop
+   105 2422 A5 14 C5 14 F0 FC	 lda:cmp:req 20
+   106
+   107 2428 A0 02		 ldy #2
+   108 242A			_lp
+   109 242A B9 C4 02		 lda 708,y
+   110 242D D9 48 24		 cmp max,y
+   111 2430 F0 09		 beq __q
+   112
+   113 2432 B9 C4 02		 lda 708,y
+   114 2435 18 69 02		 add #$02
+   115 2438 99 C4 02		 sta 708,y
+   116
+   117 243B			__q
+   118 243B AD C5 02 8D C8 02	 mva 709 712
+   119 				 
+   120 2441 88			 dey
+   121 2442 10 E6		 bpl _lp
+   122
+   123 2444 CA			 dex
+   124 2445 D0 DB		 bne _lop
+   125 				.end
+   126
+   127
+   128 2447 60			 rts
+   129
+   130 2448 04 06 08		max dta 4,6,8
+   131
+   132 				 .print 'Program: ',prg,'..',*
+   132 				Program: $1000..$244B
+   133
+   134
+   135 244B			 blk update public
+   135 244B 57 43 02 00 41 31 + A1
+   135 244B 57 43 02 00 41 32 + A2
+   135 244B 57 43 05 00 49 4E + INTRO
+   135 244B 57 43 09 00 49 4E + INTRO_ORG
+   136
+   137
+   138 				; .get [0] 'logo1.dat'
+   139 				; .get [1920] 'logo2.dat'
+   140 				; .sav [0] 'logo.dat',2*1920

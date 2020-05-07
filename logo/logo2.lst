@@ -1,0 +1,391 @@
+Mad-Assembler v1.7.3 by TeBe/Madteam
+Source: D:\!Atari\nibbly\logo\logo2.asm
+     1 				   opt h+
+     2 				   org $b000
+     3
+     4 = 2000			buf equ $2000
+     5 = 6010			sc1 equ $6010
+     6 = 8010			sc2 equ $8010
+     7
+     8 = 0080			hlp equ $80
+     9 = 0082			ind equ hlp+2
+    10 = 0083			bf1 equ ind+1
+    11 = 0085			bf2 equ bf1+2
+    12 = 0087			pix equ bf2+2
+    13 = 0088			len equ pix+1
+    14 = 0089			inx equ len+1
+    15
+    16 = 000D			px  equ 13
+    17
+    18 FFFF> B000-B0E6> 70 4E	ant dta d'p',b($4e)
+    19 B002 10 60		ad dta a(sc1)
+    20 B004 0E 0E 0E 0E 0E 0E +	   dta d'....................'
+    21 B018 0E 0E 0E 0E 0E 0E +	   dta d'....................'
+    22 B02C 0E 0E 0E 0E 0E 0E +	   dta d'....................'
+    23 B040 0E 0E 0E 0E 0E 0E +	   dta d'....................'
+    24 B054 0E 0E 0E 0E 0E 0E +	   dta d'.....................'
+    25 B069 4E			   dta b($4e)
+    26 B06A 00 70		ad_ dta a(sc1+4080)
+    27 B06C 0E 0E 0E 0E 0E 0E +	   dta d'....................'
+    28 B080 0E 0E 0E 0E 0E 0E +	   dta d'....................'
+    29 B094 0E 0E 0E 0E 0E 0E +	   dta d'....................'
+    30 B0A8 0E 0E 0E 0E 0E 0E +	   dta d'....................'
+    31 B0BC 0E 0E 0E 0E 0E 0E +	   dta d'.................'
+    32 B0CD 70 4E		   dta b($70),b($4e)
+    33 B0CF 0F B1 4E		i1 dta a(pas1),b($4e)
+    34 B0D2 37 B1 4E		i2 dta a(pas2),b($4e)
+    35 B0D5 0F B1 4E		i3 dta a(pas1),b($4e)
+    36 B0D8 37 B1 4E		i4 dta a(pas2),b($4e)
+    37 B0DB 0F B1 4E		i5 dta a(pas1),b($4e)
+    38 B0DE 37 B1 70		i6 dta a(pas2),b($70)
+    39 B0E1 42 E7 B0		   dta b($42),a(bar)
+    40 B0E4 41 00 B0		   dta b($41),a(ant)
+    41 B0E7			bar  org *+40
+    42 B10F			pas1 org *+40
+    43 B137			pas2 org *+40
+    44
+    45 				* Incjacja
+    46 				*---------
+    47 B15F-B40A> A2 E0		in ldx >$e000
+    48 B161 A0 A0		   ldy >$a000
+    49 B163 20 D6 B3		   jsr fnt
+    50
+    51 B166 A2 00		   ldx <ant
+    52 B168 A0 B0		   ldy >ant
+    53 B16A 8E 30 02		   stx 560
+    54 B16D 8C 31 02		   sty 561
+    55
+    56 B170 A9 00		   lda #$00
+    57 B172 8D F6 B3		   sta col+3
+    58 B175 A9 02		   lda #$02
+    59 B177 8D F3 B3		   sta col
+    60 B17A A9 04		   lda #$04
+    61 B17C 8D F4 B3		   sta col+1
+    62 B17F A9 06		   lda #$06
+    63 B181 8D F5 B3		   sta col+2
+    64
+    65 B184 A9 00		   lda #0
+    66 B186 85 87		   sta pix
+    67 B188 A0 77		   ldy #119
+    68 B18A 99 E7 B0		cl sta bar,y
+    69 B18D 88			   dey
+    70 B18E 10 FA		   bpl cl
+    71
+    72 B190 A2 00		   ldx #0
+    73 B192 A0 00		   ldy #0
+    74 B194 BD FB B3		ps lda kol1,x
+    75 B197 99 0F B1		   sta pas1,y
+    76 B19A 99 10 B1		   sta pas1+1,y
+    77 B19D 99 11 B1		   sta pas1+2,y
+    78 B1A0 99 12 B1		   sta pas1+3,y
+    79 B1A3 BD 03 B4		   lda kol2,x
+    80 B1A6 99 37 B1		   sta pas2,y
+    81 B1A9 99 38 B1		   sta pas2+1,y
+    82 B1AC 99 39 B1		   sta pas2+2,y
+    83 B1AF 99 3A B1		   sta pas2+3,y
+    84 B1B2 C8			   iny
+    85 B1B3 C8			   iny
+    86 B1B4 C8			   iny
+    87 B1B5 C8			   iny
+    88 B1B6 E8			   inx
+    89 B1B7 E0 07		   cpx #7
+    90 B1B9 D0 D9		   bne ps
+    91
+    92 B1BB A2 40		   ldx #64
+    93 B1BD A0 00		   ldy #0
+    94 B1BF 98			   tya
+    95 B1C0 99 00 60		cr sta sc1-$10,y
+    96 B1C3 88			   dey
+    97 B1C4 D0 FA		   bne cr
+    98 B1C6 EE C2 B1		   inc cr+2
+    99 B1C9 CA			   dex
+   100 B1CA D0 F4		   bne cr
+   101
+   102 B1CC A5 14		   lda 20
+   103 B1CE C5 14		ww cmp 20
+   104 B1D0 F0 FC		   beq ww
+   105
+   106 B1D2 D8			   cld
+   107 B1D3 78			   sei
+   108 B1D4 A9 FE		   lda #$fe
+   109 B1D6 8D 01 D3		   sta $d301
+   110 B1D9 A9 00		   lda #0
+   111 B1DB 8D 0E D4		   sta $d40e
+   112
+   113 B1DE A2 49		   ldx <vbl
+   114 B1E0 A0 B3		   ldy >vbl
+   115 B1E2 8E FA FF		   stx $fffa
+   116 B1E5 8C FB FF		   sty $fffa+1
+   117
+   118 B1E8 A9 40		   lda #$40
+   119 B1EA 8D 0E D4		   sta $d40e
+   120
+   121 B1ED A2 A0		   ldx >$a000
+   122 B1EF A0 E0		   ldy >$e000
+   123 B1F1 20 D6 B3		   jsr fnt
+   124
+   125 				* Utworz obraz
+   126 				*-------------
+   127 B1F4 20 40 B3		skip jsr abuf
+   128 B1F7 A2 10		   ldx <sc1
+   129 B1F9 A0 60		   ldy >sc1
+   130 B1FB 86 83		   stx bf1
+   131 B1FD 84 84		   sty bf1+1
+   132
+   133 B1FF A2 10		   ldx <sc2
+   134 B201 A0 80		   ldy >sc2
+   135 B203 86 85		   stx bf2
+   136 B205 84 86		   sty bf2+1
+   137 B207 A9 00		   lda #0
+   138 B209 85 88		   sta len
+   139
+   140 B20B A0 00		lp_ ldy #0
+   141 B20D B1 80		   lda (hlp),y
+   142 B20F 4A			   lsr @
+   143 B210 4A			   lsr @
+   144 B211 4A			   lsr @
+   145 B212 4A			   lsr @
+   146 B213 20 CA B2		   jsr szuk
+   147 B216 A0 00		   ldy #0
+   148 B218 B1 80		   lda (hlp),y
+   149 B21A 29 0F		   and #$f
+   150 B21C 20 CA B2		   jsr szuk
+   151
+   152 B21F E6 80 D0 02 E6 81	   inw hlp
+   153
+   154 B225 A5 80		   lda hlp
+   155 B227 C9 80		   cmp <buf+16000
+   156 B229 A5 81		   lda hlp+1
+   157 B22B E9 5E		   sbc >buf+16000
+   158 B22D 90 DC		   bcc lp_
+   159
+   160 B22F A9 00		   lda #0
+   161 B231 85 89		   sta inx
+   162 B233 20 B1 B2		   jsr neg
+   163 B236 A9 00		rep lda #0
+   164 B238 85 14		   sta 20
+   165 B23A A5 14		wai lda 20
+   166 B23C C9 06		   cmp #6
+   167 B23E D0 FA		   bne wai
+   168
+   169 B240 AD F3 B3		   lda col
+   170 B243 A2 0D		   ldx #px
+   171 B245 20 B2 B3		   jsr hex
+   172
+   173 B248 AD F4 B3		   lda col+1
+   174 B24B A2 11		   ldx #px+4
+   175 B24D 20 B2 B3		   jsr hex
+   176
+   177 B250 AD F5 B3		   lda col+2
+   178 B253 A2 15		   ldx #px+8
+   179 B255 20 B2 B3		   jsr hex
+   180
+   181 B258 AD F6 B3		   lda col+3
+   182 B25B A2 19		   ldx #px+12
+   183 B25D 20 B2 B3		   jsr hex
+   184
+   185 B260 20 B1 B2		   jsr neg
+   186
+   187 B263 AD 1F D0		   lda 53279
+   188 B266 C9 06		   cmp #6
+   189 B268 F0 0B		   beq nxt
+   190 B26A C9 05		   cmp #5
+   191 B26C F0 19		   beq sel
+   192 B26E C9 03		   cmp #3
+   193 B270 F0 31		   beq opt
+   194 B272 4C 36 B2		   jmp rep
+   195
+   196 B275 20 B1 B2		nxt jsr neg
+   197 B278 E6 89		   inc inx
+   198 B27A A5 89		   lda inx
+   199 B27C C9 04		   cmp #4
+   200 B27E D0 B6		   bne rep
+   201 B280 A9 00		   lda #0
+   202 B282 85 89		   sta inx
+   203 B284 4C 36 B2		   jmp rep
+   204
+   205 B287 A4 89		sel ldy inx
+   206 B289 B9 F3 B3		   lda col,y
+   207 B28C 29 0F		   and #$f
+   208 B28E 18			   clc
+   209 B28F 69 02		   adc #2
+   210 B291 29 0F		   and #$f
+   211 B293 8D 9C B2		   sta mm+1
+   212 B296 B9 F3 B3		   lda col,y
+   213 B299 29 F0		   and #$f0
+   214 B29B 09 00		mm ora #0
+   215 B29D 99 F3 B3		   sta col,y
+   216 B2A0 4C 36 B2		   jmp rep
+   217
+   218 B2A3 A4 89		opt ldy inx
+   219 B2A5 B9 F3 B3		   lda col,y
+   220 B2A8 18			   clc
+   221 B2A9 69 10		   adc #16
+   222 B2AB 99 F3 B3		   sta col,y
+   223 B2AE 4C 36 B2		   jmp rep
+   224
+   225 B2B1 A5 89		neg lda inx
+   226 B2B3 0A			   asl @
+   227 B2B4 0A			   asl @
+   228 B2B5 18			   clc
+   229 B2B6 69 0D		   adc #px
+   230 B2B8 A8			   tay
+   231 B2B9 B9 E7 B0		   lda bar,y
+   232 B2BC 49 80		   eor #$80
+   233 B2BE 99 E7 B0		   sta bar,y
+   234 B2C1 B9 E8 B0		   lda bar+1,y
+   235 B2C4 49 80		   eor #$80
+   236 B2C6 99 E8 B0		   sta bar+1,y
+   237 B2C9 60			   rts
+   238
+   239 B2CA AA			szuk tax
+   240 B2CB BD FB B3		is lda kol1,x
+   241 B2CE A4 87		   ldy pix
+   242 B2D0 39 F7 B3		   and tand,y
+   243 B2D3 A0 00		   ldy #0
+   244 B2D5 11 83		   ora (bf1),y
+   245 B2D7 91 83		   sta (bf1),y
+   246
+   247 B2D9 BD 03 B4		is2 lda kol2,x
+   248 B2DC A4 87		   ldy pix
+   249 B2DE 39 F7 B3		   and tand,y
+   250 B2E1 A0 00		   ldy #0
+   251 B2E3 11 85		   ora (bf2),y
+   252 B2E5 91 85		   sta (bf2),y
+   253
+   254 B2E7 E6 87		   inc pix
+   255 B2E9 A5 87		   lda pix
+   256 B2EB C9 04		   cmp #4
+   257 B2ED D0 50		   bne om
+   258 B2EF A9 00		   lda #0
+   259 B2F1 85 87		   sta pix
+   260 B2F3 E6 88		   inc len
+   261 B2F5 A5 88		   lda len
+   262 B2F7 C9 28		   cmp #40
+   263 B2F9 D0 38		   bne skp
+   264 B2FB A9 00		   lda #0
+   265 B2FD 85 88		   sta len
+   266 B2FF A9 00		eo lda #0
+   267 B301 49 01		   eor #1
+   268 B303 8D 00 B3		   sta eo+1
+   269 B306 F0 17		   beq t1
+   270
+   271 B308 A2 03		   ldx <kol2
+   272 B30A A0 B4		   ldy >kol2
+   273 B30C 8E CC B2		   stx is+1
+   274 B30F 8C CD B2		   sty is+2
+   275 B312 A2 FB		   ldx <kol1
+   276 B314 A0 B3		   ldy >kol1
+   277 B316 8E DA B2		   stx is2+1
+   278 B319 8C DB B2		   sty is2+2
+   279 B31C 4C 33 B3		   jmp skp
+   280
+   281 B31F A2 FB		t1 ldx <kol1
+   282 B321 A0 B3		   ldy >kol1
+   283 B323 8E CC B2		   stx is+1
+   284 B326 8C CD B2		   sty is+2
+   285 B329 A2 03		   ldx <kol2
+   286 B32B A0 B4		   ldy >kol2
+   287 B32D 8E DA B2		   stx is2+1
+   288 B330 8C DB B2		   sty is2+2
+   289
+   290 B333 E6 83		skp inc bf1
+   291 B335 D0 02		   bne *+4
+   292 B337 E6 84		   inc bf1+1
+   293
+   294 B339 E6 85		   inc bf2
+   295 B33B D0 02		   bne *+4
+   296 B33D E6 86		   inc bf2+1
+   297 B33F 60			om rts
+   298
+   299 B340 A2 00		abuf ldx <buf
+   300 B342 A0 20		   ldy >buf
+   301 B344 86 80		   stx hlp
+   302 B346 84 81		   sty hlp+1
+   303 B348 60			   rts
+   304
+   305 B349 48			vbl pha
+   306 B34A 8D 0F D4		   sta $d40f
+   307
+   308 B34D E6 14		   inc $14
+   309
+   310 B34F AD F3 B3		   lda col
+   311 B352 8D 16 D0		   sta $d016
+   312 B355 AD F4 B3		   lda col+1
+   313 B358 8D 17 D0		   sta $d017
+   314 B35B AD F5 B3		   lda col+2
+   315 B35E 8D 18 D0		   sta $d018
+   316 B361 AD F6 B3		   lda col+3
+   317 B364 8D 1A D0		   sta $d01a
+   318
+   319 B367 A5 14		   lda $14
+   320 B369 29 01		   and #1
+   321 B36B F0 23		   beq n0
+   322 B36D A9 80		n1 lda >sc2
+   323 B36F 8D 03 B0		   sta ad+1
+   324 B372 A9 90		   lda >sc2+4080
+   325 B374 8D 6B B0		   sta ad_+1
+   326 B377 A9 0F		   lda <pas1
+   327 B379 8D CF B0		   sta i1
+   328 B37C 8D D5 B0		   sta i3
+   329 B37F 8D DB B0		   sta i5
+   330 B382 A9 37		   lda <pas2
+   331 B384 8D D2 B0		   sta i2
+   332 B387 8D D8 B0		   sta i4
+   333 B38A 8D DE B0		   sta i6
+   334 B38D 4C B0 B3		   jmp ex
+   335
+   336 B390 A9 60		n0 lda >sc1
+   337 B392 8D 03 B0		   sta ad+1
+   338 B395 A9 70		   lda >sc1+4080
+   339 B397 8D 6B B0		   sta ad_+1
+   340 B39A A9 37		   lda <pas2
+   341 B39C 8D CF B0		   sta i1
+   342 B39F 8D D5 B0		   sta i3
+   343 B3A2 8D DB B0		   sta i5
+   344 B3A5 A9 0F		   lda <pas1
+   345 B3A7 8D D2 B0		   sta i2
+   346 B3AA 8D D8 B0		   sta i4
+   347 B3AD 8D DE B0		   sta i6
+   348
+   349 B3B0 68			ex pla
+   350 B3B1 40			   rti
+   351
+   352 B3B2 48			hex pha
+   353 B3B3 4A			 lsr @
+   354 B3B4 4A			 lsr @
+   355 B3B5 4A			 lsr @
+   356 B3B6 4A			 lsr @
+   357 B3B7 20 BD B3		 jsr hx
+   358 B3BA 68			 pla
+   359 B3BB 29 0F		 and #$f
+   360 B3BD A8			hx tay
+   361 B3BE B9 C6 B3		 lda thex,y
+   362 B3C1 9D E7 B0		 sta bar,x
+   363 B3C4 E8			 inx
+   364 B3C5 60			 rts
+   365 B3C6 10 11 12 13 14 15 +	thex dta d'0123456789ABCDEF'
+   366
+   367 B3D6 8E E2 B3		fnt stx f1+2
+   368 B3D9 8C E5 B3		   sty f2+2
+   369 B3DC A2 04		   ldx #4
+   370 B3DE A0 00		   ldy #0
+   371 B3E0 B9 00 E0		f1 lda $e000,y
+   372 B3E3 99 00 20		f2 sta $2000,y
+   373 B3E6 88			   dey
+   374 B3E7 D0 F7		   bne f1
+   375 B3E9 EE E2 B3		   inc f1+2
+   376 B3EC EE E5 B3		   inc f2+2
+   377 B3EF CA			   dex
+   378 B3F0 D0 EE		   bne f1
+   379 B3F2 60			   rts
+   380
+   381 B3F3 00 00 00 00		col dta d'    '
+   382 B3F7 C0 30 0C 03		tand dta b($c0),b($30),b($0c),b($03)
+   383 B3FB 00 00 55 55 AA AA +	kol1 dta b($00,$00,$55,$55,$aa,$aa,$ff,$ff)
+   384 B403 00 55 55 AA AA FF +	kol2 dta b($00,$55,$55,$aa,$aa,$ff,$ff,$ff)
+   385
+   386 B40B				org $2000-118
+   387 1F8A-2EFF> 42 4D 76 0F +		ins 'logo2.bmp'
+   388
+   389 02E0-02E1> 5F B1		 run in

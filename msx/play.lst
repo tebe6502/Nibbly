@@ -1,0 +1,29 @@
+Mad-Assembler v1.7.2 by TeBe/Madteam
+Source: D:\!Atari\nibbly\msx\play.asm
+     1
+     2 				 org $a000
+     3 FFFF> 00,A000-B81D> 50 +	 ins 'nibbly.sid'
+     4
+     5
+     6 00,B81E			 org $2000
+     7
+     8 00,2000			main
+     9
+    10 00,2000-2010> A9 05	 lda #5
+    11 00,2002 20 8F 97		 jsr sid_init
+    12
+    13 00,2005			loop
+    14
+    15 				 lda:cmp:req 20
+    15 00,2005 A5 14		 lda 20
+    15 00,2007 C5 14		 cmp 20
+    15 00,2009 F0 FC		 req 20
+    16
+    17 00,200B 20 4B 98		 jsr emulator
+    18 				 
+    19 00,200E 4C 05 20		 jmp loop
+    20
+    21
+    22 00,9000-9F3A> FF FF C8 +	 .link 'nibbly_msx.obx'
+    23
+    24 00,02E0-02E1> 00 20	 run main

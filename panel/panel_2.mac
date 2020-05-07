@@ -1,0 +1,71 @@
+/**********************************
+    GRAPH2FONT MACRO DEFINITION
+***********************************
+ MVA - move byte using accumulator
+ MWA - move word using accumulator
+ INW - increment word
+
+ DLINEW - new dli address
+ ALIGN
+***********************************/
+
+/**********************************
+ MVA - move byte using accumulator
+***********************************/
+mva .macro ' '
+ lda :1
+ sta :2
+.endm
+
+/**********************************
+ MWA - move word using accumulator
+***********************************/
+mwa .macro " "
+ ift :1='#'
+  lda <:2
+  sta :4
+  lda >:2
+  sta :4+1
+ els
+  lda :2
+  sta :4
+  lda :2+1
+  sta :4+1
+ eif
+.endm
+
+/**********************************
+ INW - increment word 
+***********************************/
+inw .macro ' '
+ inc :1
+ bne skip
+ 
+ inc :1+1
+ 
+skip
+.endm
+
+/**********************************
+ DLINEW - new DLI address
+***********************************/
+.macro dlinew
+ ift .hi(?old_dli)==.hi(:1)
+  mva <:1 dliv+1
+ els
+  mwa #:1 dliv+1
+ eif
+
+ jmp NmiQuit
+
+ ?old_dli = *
+.endm
+
+/**********************************
+ ALIGN
+***********************************/
+.macro align
+ ift (*/:1)*:1<>*
+  org (*/:1)*:1+:1
+ eif
+.endm

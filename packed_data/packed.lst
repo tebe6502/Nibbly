@@ -1,0 +1,42 @@
+Mad-Assembler v1.7.3 by TeBe/Madteam
+Source: F:\!Atari\nibbly\packed_data\packed.asm
+     1
+     2 				* dane dla ekranu tyttulowego
+     3
+     4 				 icl '..\packed.hea'
+Source: F:\!Atari\nibbly\packed_data\..\packed.hea
+     1
+     2 = D800			 fntCon		= $d800		; adres zestawu znaków dla ekranu CONGRATULATIONS
+     3 = D800			 fntTit		= $d800		; adres zestawu znaków dla ekranu tytulowego
+     4
+     5 = 00D8			 hfntTit	= >fntTit
+     6 = 00D8			 hfntCon	= >fntCon
+     7
+     8 = E000			 logo1		= $e000
+     9 = E780			 logo2		= logo1+1920
+    10
+    11 = EF00			 litery		= $e000+1920*2
+    12 = F000			 scrTit		= $f000
+    13 = F220			 buf		= scrTit+544
+     5
+     6 				 .get [fntTit]	'title_ok_3.fnt'
+     7
+     8 				 .get [logo1]	'logomax1.dat'
+     9 				 .get [logo2]	'logomax2.dat'
+    10
+    11 = EF00			 ?tmp = litery
+    12
+    13 				 .get [?tmp]	'title_ok_3_litery.scr',0,32
+    14  [EF20] 0D 0D		 .put [?tmp+32] = 13, 13						; preparujemy dodatkowy znak '.'
+    15
+    16 				 .get [?tmp+34]	'title_ok_3_litery.scr',32,32
+    17  [EF42] 1E 1F		 .put [?tmp+34+32] = 30, 31						; preparujemy dodatkowy znak '.'
+    18
+    19 				 .get [scrTit]	'title_OK_3.scr'
+    20
+    21  00 00 00 00 00 00 00 +   :15*32	.put[scrTit+#] = .get[$f000+#]&$7f
+    22
+    23  0D 0D 0D 0D 0D 0D 0D +   :64	.put[scrTit+15*32+#] = 13		// SYMBOLU EXTERNAL nie mozna przypisac do .PUT
+    24 										// wiec musimy zrobic to "z lapki" :)
+    25
+    26 				 .sav [$d800] 'packed_data.dat',(scrTit+$400)-$d800	// zgrywamy pamiec $d800..
